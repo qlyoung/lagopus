@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fuzztest
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: fuzztest-bgpd
+        image: qlyoung/fuzzbox-frr:latest
+        imagePullPolicy: Always
+        args: ["zebra", "2"]
+        resources:
+          requests:
+            memory: "200Mi"
+            cpu: "2"
+          limits:
+            memory: "200Mi"
+            cpu: "2"
+      - name: fuzztest-zebra
+        image: qlyoung/fuzzbox-frr:latest
+        imagePullPolicy: Always 
+        args: ["bgpd", "2"]
+        resources:
+          requests:
+            memory: "200Mi"
+            cpu: "2"
+          limits:
+            memory: "200Mi"
+            cpu: "2"
