@@ -39,10 +39,10 @@ spec:
         persistentVolumeClaim:
           claimName: myvol
       containers:
-      - name: fuzztest-bgpd
-        image: qlyoung/fuzzbox-frr:latest
+      - name: fuzztest
+        image: qlyoung/lagopus-fuzzer:latest
         imagePullPolicy: Always
-        args: ["bgpd", "2"]
+        args: ["afl", "2"]
         resources:
           requests:
             memory: "200Mi"
@@ -50,6 +50,13 @@ spec:
           limits:
             memory: "200Mi"
             cpu: "2"
+        env:
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: LAGOPUS_JOB_ID
+          value: job-20
         volumeMounts:
-          - mountPath: /fuzzresults
+          - mountPath: /jobdata
             name: test-volume
