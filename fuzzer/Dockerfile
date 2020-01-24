@@ -1,5 +1,7 @@
 FROM qlyoung/fuzzbox:latest
 
-COPY target.conf /opt/fuzz/target.conf
+RUN apt-get install -yqq zip unzip sysstat libcap2 libjson-c3
+COPY lagopus-test-target.zip /opt/lagopus-test-target.zip
+
 COPY entrypoint.sh /opt/entrypoint.sh
 ENTRYPOINT [ "/opt/entrypoint.sh" ]

@@ -1,10 +1,11 @@
 #!/bin/bash
 echo "called with: $@"
 
-# just for testing purposes, normally this will be created for us
-JOBDIR=$LAGOPUS_JOB_ID-$(date +%s)
-mkdir -p $JOBDIR
-cd $JOBDIR
+# Development jobs ------------
+JOBDIR=/jobdata/$LAGOPUS_JOB_ID-$(date +%s)
+mkdir -p $JOBDIR && cd $JOBDIR
+unzip /opt/lagopus-test-target.zip
+# -----------------------------
 
 # Target binary should be placed at /opt/fuzz/target
 TARGET="./target"
@@ -17,6 +18,8 @@ RESULT="./results"
 # using AFL
 AFLMCC="./target.conf"
 
+mkdir -p $RESULT
+
 DRIVER=$1 # 'afl', 'libfuzzer'
 
 if [ $# -gt 1 ]; then
@@ -24,7 +27,6 @@ if [ $# -gt 1 ]; then
 else
   CORES=2
 fi
-
 
 if [ ! -f "$(pwd)/$TARGET" ]; then
   printf "Target $(pwd)/$TARGET does not exist; exiting\n"
@@ -51,7 +53,7 @@ if [ "$DRIVER" == "afl" ]; then
   # bash -c 'cd /sys/devices/system/cpu; echo performance | tee cpu*/cpufreq/scaling_governor'
   afl-multicore -s 1 -v -c $AFLMCC start $CORES
 elif [ "$DRIVER" == "libfuzzer" ]; then
-  ./target -rss_limit_mb=0 -jobs=$CORES -workers=$CORES $RESULT $CORPUS &
+  ./target -detect_leaks=0 -rss_limit_mb=0 -jobs=$CORES -workers=$CORES $RESULT $CORPUS &
 else
   printf "Fuzzing driver '$DRIVER' unsupported; exiting\n"
   exit 1
@@ -65,7 +67,7 @@ FUZZERS_ALIVE=1
 
 while [ "$FUZZERS_ALIVE" -ne "0" ]; do
 	FUZZERS_ALIVE=$(ps -ef | grep -v "grep" | grep "$TARGET" | wc -l) 
-	CPU_USAGE=$(top -b -n2 -p 1 | fgrep "Cpu(s)" | tail -1 | awk -F'id,' -v prefix="$prefix" '{ split($1, vs, ","); v=vs[length(vs)]; sub("%", "", v); printf "%s%.1f%%\n", prefix, 100 - v }')
+	CPU_USAGE=$(mpstat 2 1 | awk '$12 ~ /[0-9.]+/ { print 100 - $12"%" }' | tail -n 1)
 	MEM_USAGE=$(free -h | grep "Mem" | tr -s ' ' | cut -d' ' -f3)
 	printf "%d fuzzers alive, cpu: %s, mem: %s\n" $FUZZERS_ALIVE $CPU_USAGE $MEM_USAGE
 	sleep 1
