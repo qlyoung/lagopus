@@ -1,12 +1,20 @@
 #!/bin/bash
 echo "called with: $@"
 
-cd /opt/fuzz
+# just for testing purposes, normally this will be created for us
+JOBDIR=$LAGOPUS_JOB_ID-$(date +%s)
+mkdir -p $JOBDIR
+cd $JOBDIR
 
 # Target binary should be placed at /opt/fuzz/target
 TARGET="./target"
+# Corpus should be placed at /opt/fuzz/corpus
 CORPUS="./corpus"
+# Results directory should be externally mounted at /opt/fuzz/results
+# For AFL this needs to be fixed as AFL dislikes NFS
 RESULT="./results"
+# afl-multicore config file should be placed at /opt/fuzz/target.conf when
+# using AFL
 AFLMCC="./target.conf"
 
 DRIVER=$1 # 'afl', 'libfuzzer'
@@ -17,7 +25,6 @@ else
   CORES=2
 fi
 
-mkdir -p $RESULT
 
 if [ ! -f "$(pwd)/$TARGET" ]; then
   printf "Target $(pwd)/$TARGET does not exist; exiting\n"
