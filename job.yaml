@@ -1,26 +1,47 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: lagopusvolume
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/opt/lagopusvolume"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+ name: myvol
+spec:
+ storageClassName: manual
+ accessModes:
+   - ReadWriteOnce
+ resources:
+   requests:
+     storage: 1Gi
+---
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: fuzztest
 spec:
+  activeDeadlineSeconds: 60
+  parallelism: 5
   template:
     spec:
       restartPolicy: Never
+      volumes:
+      - name: test-volume
+        persistentVolumeClaim:
+          claimName: myvol
       containers:
       - name: fuzztest-bgpd
         image: qlyoung/fuzzbox-frr:latest
         imagePullPolicy: Always
-        args: ["zebra", "2"]
-        resources:
-          requests:
-            memory: "200Mi"
-            cpu: "2"
-          limits:
-            memory: "200Mi"
-            cpu: "2"
-      - name: fuzztest-zebra
-        image: qlyoung/fuzzbox-frr:latest
-        imagePullPolicy: Always 
         args: ["bgpd", "2"]
         resources:
           requests:
@@ -29,3 +50,6 @@ spec:
           limits:
             memory: "200Mi"
             cpu: "2"
+        volumeMounts:
+          - mountPath: /fuzzresults
+            name: test-volume
