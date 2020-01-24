@@ -1,36 +1,31 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: fuzztest
+  name: {{ jobname }}
 spec:
-  activeDeadlineSeconds: 240
-  parallelism: 5
+  activeDeadlineSeconds: {{ deadline }}
   template:
     spec:
       restartPolicy: Never
       volumes:
-      - name: test-volume
+      - name: jobdata
         persistentVolumeClaim:
           claimName: myvol
       containers:
-      - name: fuzztest
+      - name: fuzzer
         image: qlyoung/lagopus-fuzzer:latest
         imagePullPolicy: Always
-        args: ["libfuzzer", "4"]
+        args: ["{{ driver }}", "{{ cpu }}"]
         resources:
           requests:
-            memory: "200Mi"
-            cpu: "4"
+            memory: "{{ memory }}"
+            cpu: "{{ cpu }}"
           limits:
-            memory: "200Mi"
-            cpu: "4"
+            memory: "{{ memory }}"
+            cpu: "{{ cpu }}"
         env:
-        - name: MY_POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
         - name: LAGOPUS_JOB_ID
-          value: job-20
+          value: "{{ jobid }}"
         volumeMounts:
           - mountPath: /jobdata
-            name: test-volume
+            name: jobdata
