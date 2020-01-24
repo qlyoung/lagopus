@@ -1,35 +1,9 @@
----
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: lagopusvolume
-spec:
-  storageClassName: manual
-  capacity:
-    storage: 5Gi
-  accessModes:
-    - ReadWriteOnce
-  hostPath:
-    path: "/opt/lagopusvolume"
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
- name: myvol
-spec:
- storageClassName: manual
- accessModes:
-   - ReadWriteOnce
- resources:
-   requests:
-     storage: 1Gi
----
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: fuzztest
 spec:
-  activeDeadlineSeconds: 60
+  activeDeadlineSeconds: 240
   parallelism: 5
   template:
     spec:
@@ -42,14 +16,14 @@ spec:
       - name: fuzztest
         image: qlyoung/lagopus-fuzzer:latest
         imagePullPolicy: Always
-        args: ["afl", "2"]
+        args: ["libfuzzer", "4"]
         resources:
           requests:
             memory: "200Mi"
-            cpu: "2"
+            cpu: "4"
           limits:
             memory: "200Mi"
-            cpu: "2"
+            cpu: "4"
         env:
         - name: MY_POD_NAME
           valueFrom:
