@@ -1,31 +1,22 @@
 #!/usr/bin/env python3
 import click
-import yaml
+from ruamel import yaml
+import time
+import subprocess
+import os
+import pathlib
+import shutil
 
 from kubernetes import client, config
 from kubernetes.client import Configuration
-from kubernetes.client.rest import ApiException
-from kubernetes.stream import stream
 
-base_fuzzjob_spec = {
-    "apiVersion": "v1",
-    "kind": "Job",
-    "metadata": {"name": "fuzztest"},
-    "spec": {
-        "template": {
-            "spec": {
-                "containers": [
-                    {
-                        "image": "qlyoung/fuzzbox-frr",
-                        "name": "fuzzer",
-                        "args": ["/bin/sh", "-c", "while true;do date;sleep 5; done"],
-                    }
-                ]
-            },
-        },
-    },
-}
+JOB_VOLUME_PATH="/opt/lagopusvolume"
 
+# load api
+configuration = Configuration()
+Configuration.set_default(configuration)
+batchv1 = client.BatchV1Api(client.ApiClient(configuration))
+corev1 = client.CoreV1Api(client.ApiClient(configuration))
 
 @click.group()
 def cli():
@@ -34,35 +25,56 @@ def cli():
 
 @cli.command()
 @click.argument("name")
-@click.option("--cores", default=4)
-@click.option(
-    "--target",
-    required=True,
+@click.argument("driver")
+@click.argument("target", required=True,
     type=click.Path(
         exists=True, dir_okay=False, writable=False, readable=True, allow_dash=False
-    ),
-)
-def addjob(name, target, cores):
-    # create spec
-    jobspec = dict(base_fuzzjob_spec)
-    jobspec["metadata"]["name"] += "-" + name
-    jobspec["spec"]["template"]["spec"]["containers"][0]["args"] = [target, cores]
+    ))
+@click.option("--cores", default=4)
+def addjob(name, driver, target, cores):
+    # generate job ID
+    jobid = "lagopus-job-{}".format(int(time.time()))
 
-    # render as yaml
-    print(yaml.dump(jobspec))
+    # create persistent volume for jobs
+    with open("pv.yaml") as pvfile:
+        print("Creating persistent volume")
+        pv = yaml.safe_load(pvfile)
+        pv["spec"]["hostPath"]["path"] = JOB_VOLUME_PATH
+        pathlib.Path(JOB_VOLUME_PATH).mkdir(parents=True, exist_ok=True)
+        with open("pv-{}.yaml".format(jobid), "w") as pvgen:
+            pvgen.write(yaml.dump(pv))
+        subprocess.run(["microk8s.kubectl", "apply", "-f", "pv-{}.yaml".format(jobid)])
+        # response = corev1.create_persistent_volume(body=pv)
+        # print(response)
 
-    # load api
-    config.load_kube_config()
-    c = Configuration()
-    c.assert_hostname = False
-    Configuration.set_default(c)
-    batchv1 = client.BatchV1Api()
+    # create persistent volume claim
+    with open("pvc.yaml") as pvcfile:
+        print("Creating persistent volume claim")
+        pv = yaml.safe_load(pvcfile)
+        subprocess.run(["microk8s.kubectl", "apply", "-f", "pvc.yaml"])
+        #response = corev1.create_persistent_volume_claim(body=pvc)
+        #print(response)
 
-    #job = client.V1Job(api_version=jobspec['apiVersion'], kind=jobspec['kind'], metadata=jobspec['metadata'], spec=jobspec['spec'])
-    #print(job)
+    # customize job with given parameters
+    with open("job.yaml") as jobfile:
+        job = yaml.safe_load(jobfile)
+        job["metadata"]["name"] += "-" + name
+        pod = job["spec"]["template"]
+        pod["spec"]["containers"][0]["args"] = [str(driver), str(cores)]
+        pod["spec"]["containers"][0]["env"].append({'name': 'LAGOPUS_JOB_ID', 'value': jobid})
 
-    #resp = batchv1.create_namespaced_job(job, jobspec)
+    # create job directory
+    jobdir = JOB_VOLUME_PATH + "/" + jobid
 
+    pathlib.Path(jobdir).mkdir(parents=True, exist_ok=True)
+
+    # copy job zip to job directory
+    shutil.copy(target, "{}/target.zip".format(jobdir))
+        
+    with open("{}.yaml".format(jobid), "w") as genjob:
+        genjob.write(yaml.dump(job))
+
+    subprocess.run(["microk8s.kubectl", "apply", "-f", "{}.yaml".format(jobid)])
 
 if __name__ == "__main__":
     cli()
