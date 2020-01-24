@@ -1,11 +1,14 @@
 #!/bin/bash
 echo "called with: $@"
 
+echo "My job ID: $LAGOPUS_JOB_ID"
+
 # Development jobs ------------
-JOBDIR=/jobdata/$LAGOPUS_JOB_ID-$(date +%s)
-mkdir -p $JOBDIR && cd $JOBDIR
-unzip /opt/lagopus-test-target.zip
+JOBDIR=/jobdata/$LAGOPUS_JOB_ID
 # -----------------------------
+
+cd $JOBDIR
+unzip target.zip
 
 # Target binary should be placed at /opt/fuzz/target
 TARGET="./target"
