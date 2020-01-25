@@ -4,10 +4,11 @@ echo "called with: $@"
 echo "My job ID: $LAGOPUS_JOB_ID"
 
 # Development jobs ------------
-JOBDIR=/jobdata/$LAGOPUS_JOB_ID
-# -----------------------------
-
+JOBDIR=/jobdata/
+mkdir -p $JOBDIR
 cd $JOBDIR
+wget http://jobserver:80/testjob.zip -O target.zip
+# -----------------------------
 unzip target.zip
 
 # Target binary should be placed at /opt/fuzz/target
