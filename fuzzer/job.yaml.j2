@@ -11,6 +11,8 @@ spec:
       - name: jobdata
         persistentVolumeClaim:
           claimName: myvol
+      imagePullSecrets:
+      - name: regcred
       containers:
       - name: fuzzer
         image: qlyoung/lagopus-fuzzer:latest

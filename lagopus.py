@@ -74,7 +74,7 @@ def addjob(name, driver, target, cores, memory, deadline):
 
     jobid = lagopus_jobid(name, driver)
 
-    env = jinja2.Environment(loader=jinja2.FileSystemLoader("./templates"))
+    env = jinja2.Environment(loader=jinja2.FileSystemLoader("./fuzzer"))
 
     # setup persistent volume
     pv = env.get_template("pv.yaml.j2")
