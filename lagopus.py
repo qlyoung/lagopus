@@ -101,7 +101,6 @@ def addjob(name, driver, target, cores, memory, deadline):
     jobconf["driver"] = driver
     jobdir = DIR_LAGOPUS_JOBS + "/" + jobid
     pathlib.Path(jobdir).mkdir(parents=True, exist_ok=True)
-    shutil.copy(target, "{}/target.zip".format(jobdir))
     with open(jobdir + "/job.yaml", "w") as genjob:
         rj = job.render(**jobconf)
         genjob.write(job.render(**jobconf))

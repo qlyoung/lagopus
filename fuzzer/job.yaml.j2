@@ -7,10 +7,6 @@ spec:
   template:
     spec:
       restartPolicy: Never
-      volumes:
-      - name: jobdata
-        persistentVolumeClaim:
-          claimName: myvol
       imagePullSecrets:
       - name: regcred
       containers:
@@ -28,6 +24,3 @@ spec:
         env:
         - name: LAGOPUS_JOB_ID
           value: "{{ jobid }}"
-        volumeMounts:
-          - mountPath: /jobdata
-            name: jobdata
