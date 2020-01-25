@@ -133,7 +133,22 @@ better choice to eliminate KVM / Virtualbox overhead.
 
 At this point the cluster is set up to run fuzzing jobs.
 
+Building
+--------
+`cd` into the repository, then:
+
+```
+./build.sh
+```
+
 Usage
 -----
+Starting lagopus:
 
+```
+kubectl apply -f ./lagopus.yaml
+```
+
+This starts the jobserver and results server.
+New jobs can then be added with `./lagopus.py`. See `--help` for usage.
 
