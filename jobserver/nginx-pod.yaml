@@ -1,0 +1,15 @@
+apiVersion: v1    
+kind: Pod    
+metadata:
+  name: jobserver
+  labels:
+    app: jobserver
+spec:    
+  containers:    
+  - name: fileserver    
+    image: qlyoung/lagopus-jobserver    
+    imagePullPolicy: Always 
+    ports:
+    - containerPort: 80
+  imagePullSecrets:
+  - name: regcred
