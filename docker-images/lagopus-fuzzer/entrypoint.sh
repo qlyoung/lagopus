@@ -1,7 +1,14 @@
 #!/bin/bash
 echo "called with: $@"
 
-echo "My job ID: $LAGOPUS_JOB_ID"
+if [ "$FUZZER_TIMEOUT" != "" ]; then
+  echo "Timeout: $FUZZER_TIMEOUT"
+else
+  echo "No timeout specified"
+fi
+
+# record start time to compute elapsed time later
+STARTTIME="$(date -u +%s)"
 
 # Development jobs ------------
 JOBDIR=/jobdata/
@@ -68,13 +75,31 @@ touch started
 
 # Loop on pushing out stats
 FUZZERS_ALIVE=1
+ELAPSED_TIME=$(($(date -u +%s) - $STARTTIME))
 
-while [ "$FUZZERS_ALIVE" -ne "0" ]; do
+while [ "$FUZZERS_ALIVE" -ne "0" -a ! -f /shouldexit -a ! $ELAPSED_TIME -gt $FUZZER_TIMEOUT ]; do
 	FUZZERS_ALIVE=$(ps -ef | grep -v "grep" | grep "$TARGET" | wc -l) 
+	ELAPSED_TIME=$(($(date -u +%s) - $STARTTIME))
 	CPU_USAGE=$(mpstat 2 1 | awk '$12 ~ /[0-9.]+/ { print 100 - $12"%" }' | tail -n 1)
 	MEM_USAGE=$(free -h | grep "Mem" | tr -s ' ' | cut -d' ' -f3)
 	printf "%d fuzzers alive, cpu: %s, mem: %s\n" $FUZZERS_ALIVE $CPU_USAGE $MEM_USAGE
 	sleep 1
 done
 
-printf "No fuzzers alive, exiting.\n"
+if [ "$FUZZERS_ALIVE" == "0" ]; then
+  printf "No fuzzers alive, exiting.\n"
+fi
+
+if [ $ELAPSED_TIME -gt $FUZZER_TIMEOUT ]; then
+  printf "Elapsed time %d greater than specified timeout %d\n" $ELAPSED_TIME $FUZZER_TIMEOUT
+fi
+
+if [ "$FUZZERS_ALIVE" == "0" ]; then
+  printf "No fuzzers alive, exiting.\n"
+fi
+
+if [ -f /shouldexit ]; then
+  printf "Graceful exit requested, exiting.\n"
+fi
+
+exit 0
