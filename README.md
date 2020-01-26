@@ -98,8 +98,8 @@ better choice to eliminate KVM / Virtualbox overhead.
 6. Deploy the test job and verify that it gets scheduled. It's a good idea to
    adjust `spec.parallelism` to force k8s to schedule onto nodes other than the
    control plane to make sure this works. The test job requires 4 cpus so
-   increase parallelism to ceil(C/4)+1 to ensure at least 1 other node gets
-   scheduled.
+   increase parallelism to ceil(C/4)+1 where C is # cpus on your master node to
+   ensure at least 1 other node gets scheduled.
 
    * microk8s:
 
@@ -141,14 +141,28 @@ Building
 ./build.sh
 ```
 
+This builds the necessary docker images and pushes them to DockerHub, generates
+the necessary resources YAMLs and concatenates them all into `lagopus.yaml`.
+
 Usage
 -----
-Starting lagopus:
+Build the project as in `Building`.
+
+To start `lagopus`:
 
 ```
 kubectl apply -f ./lagopus.yaml
 ```
 
 This starts the jobserver and results server.
+
 New jobs can then be added with `./lagopus.py`. See `--help` for usage.
 
+To undeploy `lagopus`, delete its resources:
+```
+kubectl delete -f lagopus.yaml
+```
+Then kill all its jobs:
+```
+kubectl delete jobs --all
+```
