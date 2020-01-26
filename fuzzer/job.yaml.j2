@@ -16,6 +16,10 @@ spec:
         image: qlyoung/lagopus-fuzzer:latest
         imagePullPolicy: Always
         args: ["{{ driver }}", "{{ cpu }}"]
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/stop.sh"]
         resources:
           requests:
             memory: "{{ memory }}"
@@ -26,3 +30,5 @@ spec:
         env:
         - name: LAGOPUS_JOB_ID
           value: "{{ jobid }}"
+        - name: FUZZER_TIMEOUT
+          value: "{{ deadline - 15 }}"
