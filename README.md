@@ -3,16 +3,64 @@ lagopus
 
 Distributed fuzzing for the rest of us.
 
+About
+-----
+lagopus is a distributed fuzzing application build on top of Kubernetes. It
+allows you to fuzz arbitrary targets using clustered compute resources. You
+specify the target, fuzzing driver (`afl` or `libFuzzer`), corpus, and job
+parameters such as # CPUs, memory and TTL. Lagopus then builds the job and
+hands it to your k8s cluster. When the job completes, lagopus deposits the
+reuslts in your NFS share for further analysis.
+
+FAQ
+---
+- Q: Why not ClusterFuzz?
+  A: Google Cloud.
+
+- Q: Why not LuckyCAT?
+  A: [I couldn't get it to work for me](https://github.com/fkie-cad/LuckyCAT/issues/3)
+
+- Q: Why just AFL and libFuzzer?
+  A: I am most familiar with those tools. More fuzzers can be added with time.
+
+- Q: Why Kubernetes?
+  A: Kubernetes is, to my knowledge, the only clustered orchestration tool that
+     supports certain features necessary for high performance fuzzing jobs,
+     such as static CPU resources, privileged containers, and distributed
+     storage. Also, my existing workloads were already running in Docker. And I
+     wanted to learn Kubernetes.
+
+- Q: Why `lagopus`?
+  A: Cuz they're fucking awesome
+
+Limitations
+-----------
+This is also a todo list.
+
+lagopus cannot distribute multithreaded / multiprocess jobs across nodes.
+Distribution is at the job level. This means a small cluster where each node
+has a high CPU count is preferable to a large cluster of smaller nodes.
+
+lagopus does not (yet) offer corpus minimization. You must maintain your corpi.
+
+lagopus depends on the existence of an NFS share external to itself to store
+job data.
+
+lagopus runs on Kubernetes.
+
 Prerequisites
 -------------
+You should have a k8s cluster, ideally on bare metal, or vms with static CPU
+resources.
+
+You should have at least 1 node with at least 4 real CPUs (not hyperthreads /
+smt). More CPUs are better. More nodes are better.
+
 You should understand how AFL and libFuzzer operate and the differences between
 them.
 
 You should be aware that fuzzers thrash disk and consume massive amounts of
 CPU, and plan accordingly. See AFL docs for more info.
-
-You should have at least 1 node with at least 4 real CPUs (not hyperthreads /
-smt). More CPUs are better. More nodes are better.
 
 You should understand how rss limits work with ASAN on x86-64, and how
 libFuzzer and AFL handle those.
@@ -132,6 +180,47 @@ better choice to eliminate KVM / Virtualbox overhead.
      ```
 
 At this point the cluster is set up to run fuzzing jobs.
+
+Next you must configure an NFS share, which is used by fuzzers to download jobs
+and then store the results when done.
+
+On Ubuntu 18.04:
+
+- Pick a node to host NFS on - the master node is okay for this and usually
+  easiest. This node should have lots of disk space, at least 200gb.
+
+- Install nfs:
+
+  ```
+  sudo apt update && sudo apt install -y nfs-kernel-server
+  ```
+
+- Make a share directory:
+
+  ```
+  sudo mkdir -p /opt/lagopus_storage
+  sudo chown nobody:nogroupd /opt/lagopus_storage
+  ```
+
+- Export this share:
+
+  ```
+  echo "/opt/lagopus_storage ::(rw,sync,no_subtree_check" >> /etc/exports
+  ```
+
+- Open firewall to allow NFS
+
+- Verify that nfs is working by trying to access it from a cluster node:
+
+  ```
+  apt install -y nfs-common && showmount -e <nfs_host>
+  ```
+  If it's working, you should see:
+
+  ```
+  Export list for minikube:
+  /opt/lagopus_storage ::
+  ```
 
 Building
 --------
