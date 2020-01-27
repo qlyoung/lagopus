@@ -1,16 +1,7 @@
 #!/bin/bash
 # Called to clean up after ourselves and gather results
 
-# first - what driver are we running with?
-if [ "$(ps -ef | grep -v "grep" | grep "afl-fuzz" | wc -l)" == "0" ]; then
-  DRIVER="libfuzzer"
-else
-  DRIVER="afl"
-fi
-
 # collect results based on the driver
-cd /jobdata
-
 mkdir jobresults
 mkdir jobresults/corpus     # for generated corpus
 mkdir jobresults/crashes    # for bug-triggering corpus inputs
@@ -21,7 +12,7 @@ if [ "$DRIVER" == "afl" ]; then
   find ./results -type f -wholename '*crashes/*' | xargs cp -t jobresults/crashes
   find ./results -type f -wholename '*queue/*' | xargs cp -t jobresults/corpus
   # FIXME: these will overwrite each other in the copy
-  find ./results -type f -name 'fuzzer_stats' | xargs cp -t jobresults/corpus
+  find ./results -type f -name 'fuzzer_stats' | xargs cp -t jobresults/misc
 elif [ "$DRIVER" == "libfuzzer" ]; then
   # in the libfuzzer case, corpus data is written to /jobdata/results
   cp -r results/* jobresults/misc/
@@ -35,7 +26,6 @@ fi
 
 zip -r jobresults.zip jobresults 
 
-# tell entrypoint.sh it should die
-touch /shouldexit
+cp jobresults.zip $JOBDATA
 
-sleep 10
+exit 0
