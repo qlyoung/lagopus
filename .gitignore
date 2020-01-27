@@ -130,3 +130,4 @@ dmypy.json
 
 # lagopus build
 lagopus.yaml
+kube-config
