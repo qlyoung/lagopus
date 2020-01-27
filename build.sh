@@ -10,12 +10,5 @@ cd $WD
 
 rm lagopus.yaml
 {
-for file in ./jobserver/*.yaml; do
-	cat $file
-	printf "\n---\n"
-done
-for file in ./nfs/*.yaml; do
-	cat $file
-	printf "\n---\n"
-done
-} >> lagopus.yaml
+	microk8s.kubectl kustomize k8s/dev/
+} >> $WD/lagopus.yaml
