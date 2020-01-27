@@ -8,30 +8,65 @@ About
 lagopus is a distributed fuzzing application build on top of Kubernetes. It
 allows you to fuzz arbitrary targets using clustered compute resources. You
 specify the target, fuzzing driver (`afl` or `libFuzzer`), corpus, and job
-parameters such as # CPUs, memory and TTL. Lagopus then builds the job and
-hands it to your k8s cluster. When the job completes, lagopus deposits the
-reuslts in your NFS share for further analysis.
+parameters such as #CPUs, memory and TTL. Lagopus then builds the job and hands
+it to your k8s cluster. When the job completes, lagopus deposits the results in
+your NFS share for further analysis.
+
+lagopus accepts job definitions in a format very similar to
+[ClusterFuzz](https://github.com/google/clusterfuzz). It wants a zip archive
+with the following structure:
+
+```
+job.zip
+├── corpus
+├── target
+└── target.conf
+```
+
+- `corpus` is a directory containing a fuzzing corpus
+- `target` is your target binary (see `Targets`)
+- `target.conf` is a config file for
+  [afl-multicore](https://gitlab.com/rc0r/afl-utils); this is only necessary
+  when the job type is `afl`, libfuzzer jobs do not use this
+
+Philosophy
+----------
+- KISS
+- F*** the cloud
+
 
 FAQ
 ---
 - Q: Why not ClusterFuzz?
+
   A: Google Cloud.
 
 - Q: Why not LuckyCAT?
-  A: [I couldn't get it to work for me](https://github.com/fkie-cad/LuckyCAT/issues/3)
+
+  A: [I couldn't get it to work for me.](https://github.com/fkie-cad/LuckyCAT/issues/3)
 
 - Q: Why just AFL and libFuzzer?
+
   A: I am most familiar with those tools. More fuzzers can be added with time.
 
 - Q: Why Kubernetes?
+
   A: Kubernetes is, to my knowledge, the only clustered orchestration tool that
      supports certain features necessary for high performance fuzzing jobs,
      such as static CPU resources, privileged containers, and distributed
      storage. Also, my existing workloads were already running in Docker. And I
      wanted to learn Kubernetes.
 
-- Q: Why `lagopus`?
+- Q: Why [lagopus](https://en.wikipedia.org/wiki/Arctic_fox)?
+
   A: Cuz they're fucking awesome
+
+- Q: My target is dynamically linked and the fuzzer image doesn't have its
+     shared libraries; what do?
+
+  A: I've had good success with [ermine](http://magicermine.com/index.html).
+     Statifier will likely not work due to ASLR.
+
 
 Limitations
 -----------
@@ -205,7 +240,7 @@ On Ubuntu 18.04:
 - Export this share:
 
   ```
-  echo "/opt/lagopus_storage ::(rw,sync,no_subtree_check" >> /etc/exports
+  echo "/opt/lagopus_storage *(rw,sync,no_subtree_check" >> /etc/exports
   ```
 
 - Open firewall to allow NFS
