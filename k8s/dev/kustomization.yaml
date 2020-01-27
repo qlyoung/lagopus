@@ -1,0 +1,6 @@
+commonLabels:
+  app: lagopus-dev
+bases:
+- ../base
+patches:
+- nfs-location.yaml
