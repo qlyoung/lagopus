@@ -22,4 +22,8 @@ for file in ./jobserver/*.yaml; do
 	cat $file
 	printf "\n---\n"
 done
+for file in ./nfs/*.yaml; do
+	cat $file
+	printf "\n---\n"
+done
 } >> lagopus.yaml
