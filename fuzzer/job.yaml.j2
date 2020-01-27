@@ -5,21 +5,25 @@ metadata:
   labels:
     app: lagopus
 spec:
-  activeDeadlineSeconds: {{ deadline }}
+  activeDeadlineSeconds: {{ deadline + 60 }}
   template:
     spec:
       restartPolicy: Never
       imagePullSecrets:
       - name: regcred
+      volumes:
+      - name: nfsvol
+        persistentVolumeClaim:
+          claimName: jobdata-pvc
       containers:
       - name: fuzzer
         image: qlyoung/lagopus-fuzzer:latest
         imagePullPolicy: Always
-        args: ["{{ driver }}", "{{ cpu }}"]
+        args: ["{{ cpu }}"]
         lifecycle:
           preStop:
             exec:
-              command: ["/stop.sh"]
+              command: ["/usr/bin/touch", "/shouldexit"]
         resources:
           requests:
             memory: "{{ memory }}"
@@ -30,5 +34,17 @@ spec:
         env:
         - name: LAGOPUS_JOB_ID
           value: "{{ jobid }}"
+        - name: DRIVER
+          value: {{ driver }}
         - name: FUZZER_TIMEOUT
-          value: "{{ deadline - 15 }}"
+          value: "{{ deadline }}"
+        - name: CORES
+          value: "{{ cpu }}"
+        - name: JOBDATA
+          value: "/{{ jobid }}"
+        - name: WORKDIR
+          value: "/workdir"
+        volumeMounts:
+          - name: nfsvol
+            mountPath: /{{ jobid }}
+            subPath: {{ jobpath }}

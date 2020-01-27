@@ -1,43 +1,58 @@
 #!/bin/bash
+
+# Required environment variables:
+# - JOBDATA: absolute path to directory with target.zip
+# - DRIVER: the fuzzing driver, one of [afl, libfuzzer]
+#
+# Optional environment variables:
+# - FUZZER_TIMEOUT
+
+# Setup -------------------
+
 echo "called with: $@"
 
-if [ "$FUZZER_TIMEOUT" != "" ]; then
-  echo "Timeout: $FUZZER_TIMEOUT"
-else
-  echo "No timeout specified"
+if [ ! -d "$JOBDATA" ]; then
+  printf "Job directory %s does not exist; exiting\n" $JOBDATA
+  ls /
+  exit 1
 fi
+printf "Job directory: %s\n" $JOBDATA
+
+# timeout
+if [ "$FUZZER_TIMEOUT" == "" ]; then
+  echo "No timeout specified"
+  FUZZER_TIMEOUT=3600
+fi
+printf "Timeout: %d seconds\n" $FUZZER_TIMEOUT
+
+# set cores
+if [ "$CORES" == "" ]; then
+  echo "No core count specified"
+  CORES=2
+fi
+printf "Using %d cores" $CORES
 
 # record start time to compute elapsed time later
 STARTTIME="$(date -u +%s)"
 
-# Development jobs ------------
-JOBDIR=/jobdata/
-mkdir -p $JOBDIR
-cd $JOBDIR
-wget http://jobserver:80/testjob.zip -O target.zip
-# -----------------------------
+# Run ---------------------
+
+mkdir -p $WORKDIR
+cp $JOBDATA/target.zip $WORKDIR/
+# wget http://jobserver:80/testjob.zip -O target.zip
+
+cd $WORKDIR
+
 unzip target.zip
 
-# Target binary should be placed at /opt/fuzz/target
 TARGET="./target"
-# Corpus should be placed at /opt/fuzz/corpus
 CORPUS="./corpus"
-# Results directory should be externally mounted at /opt/fuzz/results
-# For AFL this needs to be fixed as AFL dislikes NFS
 RESULT="./results"
-# afl-multicore config file should be placed at /opt/fuzz/target.conf when
-# using AFL
+# afl-multicore config file should be placed at $JOBDATA/target.conf when using
+# AFL
 AFLMCC="./target.conf"
 
 mkdir -p $RESULT
-
-DRIVER=$1 # 'afl', 'libfuzzer'
-
-if [ $# -gt 1 ]; then
-  CORES=$2
-else
-  CORES=2
-fi
 
 if [ ! -f "$(pwd)/$TARGET" ]; then
   printf "Target $(pwd)/$TARGET does not exist; exiting\n"
@@ -101,5 +116,7 @@ fi
 if [ -f /shouldexit ]; then
   printf "Graceful exit requested, exiting.\n"
 fi
+
+/stop.sh
 
 exit 0

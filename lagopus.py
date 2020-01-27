@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import stat
 import pathlib
 import shutil
 import subprocess
@@ -13,8 +14,9 @@ from kubernetes.client import Configuration
 
 
 # Global settings ------------------------
-DIR_LAGOPUS="/opt/lagopus"
-DIR_LAGOPUS_JOBS=DIR_LAGOPUS + "/jobs"
+DIR_LAGOPUS="/opt/lagopus_storage" # state directory
+SUBDIR_LAGOPUS_JOBS="jobs"
+DIR_LAGOPUS_JOBS=DIR_LAGOPUS + "/" + SUBDIR_LAGOPUS_JOBS # state directory for jobs
 # ----------------------------------------
 
 # load api
@@ -76,22 +78,12 @@ def addjob(name, driver, target, cores, memory, deadline):
 
     env = jinja2.Environment(loader=jinja2.FileSystemLoader("./fuzzer"))
 
-    # setup persistent volume
-    pv = env.get_template("pv.yaml.j2")
-    opath = "/tmp/pv-{}.yaml".format(jobid)
-    with open(opath, "w") as pvgen:
-        pvgen.write(pv.render(path=DIR_LAGOPUS_JOBS))
-    subprocess.run(["microk8s.kubectl", "apply", "-f", opath])
-
-    # create persistent volume claim
-    pvc = env.get_template("pvc.yaml.j2")
-    opath = "/tmp/pvc-{}.yaml".format(jobid)
-    with open(opath, "w") as pvgen:
-        pvgen.write(pvc.render())
-    subprocess.run(["microk8s.kubectl", "apply", "-f", opath])
-
     # create job
     job = env.get_template("job.yaml.j2")
+    jobdir = DIR_LAGOPUS_JOBS + "/" + jobid
+    pathlib.Path(jobdir).mkdir(parents=True, exist_ok=True)
+    os.chmod(jobdir, stat.S_IWOTH | stat.S_IXOTH | stat.S_IROTH)
+    print("Job directory: {}".format(jobdir))
     jobconf = {}
     jobconf["jobname"] = name
     jobconf["jobid"] = jobid
@@ -99,11 +91,11 @@ def addjob(name, driver, target, cores, memory, deadline):
     jobconf["memory"] = "{}Mi".format(memory)
     jobconf["deadline"] = deadline
     jobconf["driver"] = driver
-    jobdir = DIR_LAGOPUS_JOBS + "/" + jobid
-    pathlib.Path(jobdir).mkdir(parents=True, exist_ok=True)
+    jobconf["jobpath"] = SUBDIR_LAGOPUS_JOBS + "/" + jobid
     with open(jobdir + "/job.yaml", "w") as genjob:
         rj = job.render(**jobconf)
         genjob.write(job.render(**jobconf))
+    shutil.copy(target, jobdir + "/" + "target.zip")
     subprocess.run(["microk8s.kubectl", "apply", "-f", jobdir + "/job.yaml"])
 
 if __name__ == "__main__":
