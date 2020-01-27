@@ -1,0 +1,7 @@
+commonLabels:
+  app: lagopus
+resources:
+  - jobserver/nginx-pod.yaml
+  - jobserver/jobserver-service.yaml
+  - nfs/pv.yaml
+  - nfs/pvc.yaml
