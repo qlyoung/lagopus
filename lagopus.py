@@ -14,10 +14,11 @@ from kubernetes import client, config
 
 
 # Global settings ------------------------
-DIR_LAGOPUS="/opt/lagopus_storage" # state directory
-SUBDIR_LAGOPUS_JOBS="jobs"
-DIR_LAGOPUS_JOBS=DIR_LAGOPUS + "/" + SUBDIR_LAGOPUS_JOBS # state directory for jobs
+DIR_LAGOPUS = "/opt/lagopus_storage"  # state directory
+SUBDIR_LAGOPUS_JOBS = "jobs"
+DIR_LAGOPUS_JOBS = DIR_LAGOPUS + "/" + SUBDIR_LAGOPUS_JOBS  # state directory for jobs
 # ----------------------------------------
+
 
 def lagopus_sanitycheck():
     """
@@ -33,7 +34,9 @@ def lagopus_sanitycheck():
             pathlib.Path(d).mkdir(parents=True, exist_ok=True)
 
     try:
-        subprocess.run(["microk8s.status"], timeout=10, check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(
+            ["microk8s.status"], timeout=10, check=True, stdout=subprocess.DEVNULL
+        )
     except CalledProcessError:
         print("Kubernetes seems unhealthy, check microk8s.status")
         exit(1)
@@ -41,12 +44,14 @@ def lagopus_sanitycheck():
         print("microk8s.status timed out, check cluster health")
         exit(1)
 
+
 def lagopus_jobid(name, driver):
     """
     Generate a unique job ID based on the job name.
     """
     now = datetime.datetime.now()
     return "{}-{}.{}".format(name, driver, now.strftime("%Y_%m_%d_%H_%M_%S"))
+
 
 def lagopus_get_kubeapis(confile="kube-config"):
     # load api
@@ -60,13 +65,17 @@ def lagopus_get_kubeapis(confile="kube-config"):
 def cli():
     pass
 
+
 @cli.command()
 @click.argument("name")
 @click.argument("driver")
-@click.argument("target", required=True,
+@click.argument(
+    "target",
+    required=True,
     type=click.Path(
         exists=True, dir_okay=False, writable=False, readable=True, allow_dash=False
-    ))
+    ),
+)
 @click.option("--cores", default=2)
 @click.option("--memory", default=200)
 @click.option("--deadline", default=240)
@@ -105,7 +114,9 @@ def addjob(name, driver, target, cores, memory, deadline, namespace):
     apis = lagopus_get_kubeapis()
 
     try:
-        response = apis["batchv1"].create_namespaced_job(jobyaml['metadata']['namespace'], jobyaml, pretty=True)
+        response = apis["batchv1"].create_namespaced_job(
+            jobyaml["metadata"]["namespace"], jobyaml, pretty=True
+        )
     except ApiException as e:
         print("API exception: {}".format(e))
     finally:
