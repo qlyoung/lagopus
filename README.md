@@ -171,48 +171,13 @@ better choice to eliminate KVM / Virtualbox overhead.
 
 5. Verify your cluster is configured on the control plane node, e.g.:
    ```
-   root@minikube:~# microk8s.kubectl get no
+   root@k8s-master:~# kubectl get no
    NAME         STATUS   ROLES    AGE     VERSION
    microk8s-1   Ready    <none>   38m     v1.17.0
-   minikube     Ready    <none>   5d15h   v1.17.0
+   k8s-master   Ready    <none>   5d15h   v1.17.0
    ```
    All nodes should read `Ready`.
 
-6. Deploy the test job and verify that it gets scheduled. It's a good idea to
-   adjust `spec.parallelism` to force k8s to schedule onto nodes other than the
-   control plane to make sure this works. The test job requires 4 cpus so
-   increase parallelism to ceil(C/4)+1 where C is # cpus on your master node to
-   ensure at least 1 other node gets scheduled.
-
-   * microk8s:
-
-     ```
-     microk8s.kubectl apply -f job.yaml
-     ```
-
-     Verify that at least some pods have been scheduled:
-
-     ```
-     root@minikube:~# microk8s.kubectl get pod
-     NAME             READY   STATUS    RESTARTS   AGE
-     fuzztest-grb9t   0/2     Pending   0          29m
-     fuzztest-kxswf   2/2     Running   0          29m
-     fuzztest-lw8d8   0/2     Pending   0          29m
-     fuzztest-nnzfn   2/2     Running   0          29m
-     fuzztest-tqp96   2/2     Running   0          29m
-     ```
-
-     Verify that those pods are pegging CPUs. You can do this with
-     `kubectl describe node <node>`, or by logging into the node and looking at
-     `top` or `htop`.
-
-7. Remove the test job.
-
-   * microk8s:
-
-     ```
-     microk8s.kubectl delete fuzztest
-     ```
 
 At this point the cluster is set up to run fuzzing jobs.
 
@@ -221,7 +186,7 @@ and then store the results when done.
 
 On Ubuntu 18.04:
 
-- Pick a node to host NFS on - the master node is okay for this and usually
+- Pick somewhere to host NFS on - the master node is okay for this and usually
   easiest. This node should have lots of disk space, at least 200gb.
 
 - Install nfs:
@@ -245,7 +210,7 @@ On Ubuntu 18.04:
 
 - Open firewall to allow NFS
 
-- Verify that nfs is working by trying to access it from a cluster node:
+- Verify that NFS is working by trying to access it from a cluster node:
 
   ```
   apt install -y nfs-common && showmount -e <nfs_host>
@@ -253,7 +218,7 @@ On Ubuntu 18.04:
   If it's working, you should see:
 
   ```
-  Export list for minikube:
+  Export list for <nfs_host>:
   /opt/lagopus_storage ::
   ```
 
