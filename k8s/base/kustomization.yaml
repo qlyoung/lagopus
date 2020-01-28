@@ -5,3 +5,4 @@ resources:
   - jobserver/jobserver-service.yaml
   - nfs/pv.yaml
   - nfs/pvc.yaml
+  - namespaces/namespace.yaml
