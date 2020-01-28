@@ -61,9 +61,31 @@ def lagopus_get_kubeapis(confile="kube-config"):
     return {"corev1": corev1, "batchv1": batchv1}
 
 
+apis = lagopus_get_kubeapis()
+
+
 @click.group()
 def cli():
     pass
+
+
+@cli.command()
+@click.option("--namespace", default="default")
+def getjobs(namespace):
+    for job in apis["batchv1"].list_namespaced_job(namespace).items:
+        print(job.metadata.name)
+        is_complete = all(map(lambda c: c.type == "Complete", job.status.conditions))
+        print("\tStatus: {}".format("Complete" if is_complete else "Incomplete"))
+        print("\tJob directory: {}".format(DIR_LAGOPUS_JOBS + "/" + job.metadata.name))
+        print("\tPods:")
+        for pod in (
+            apis["corev1"]
+            .list_namespaced_pod(
+                namespace, label_selector="job-name = {}".format(job.metadata.name)
+            )
+            .items
+        ):
+            print("\t- {}\t[{}]".format(pod.metadata.name, pod.status.phase))
 
 
 @cli.command()
@@ -110,8 +132,6 @@ def addjob(name, driver, target, cores, memory, deadline, namespace):
         jobyaml = yaml.safe_load(rj)
         genjob.write(rj)
     shutil.copy(target, jobdir + "/" + "target.zip")
-
-    apis = lagopus_get_kubeapis()
 
     try:
         response = apis["batchv1"].create_namespaced_job(
