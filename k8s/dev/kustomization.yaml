@@ -4,3 +4,4 @@ bases:
 - ../base
 patches:
 - nfs-location.yaml
+- metallb-ips.yaml

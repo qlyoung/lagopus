@@ -1,8 +1,10 @@
 commonLabels:
   app: lagopus
 resources:
-  - jobserver/nginx-pod.yaml
-  - jobserver/jobserver-service.yaml
+  - server/server-pod.yaml
+  - server/server-service.yaml
   - nfs/pv.yaml
   - nfs/pvc.yaml
   - namespaces/namespace.yaml
+  - metallb/metallb.yaml
+  - metallb/metallb-config.yaml

@@ -224,7 +224,22 @@ On Ubuntu 18.04:
 
 Building
 --------
-`cd` into the repository, then:
+`cd` into the repository. Make a couple kustomizations:
+
+- Set your desired IP range, on which the lagopus web app / API server should
+  be accessible (unfortunately this is a necessary complexity to allow access
+  on port 80) in the following file:
+
+  ```
+  k8s/dev/metallb-ips.yaml
+  ```
+
+- Set the path to your NFS share:
+  ```
+  k8s/dev/nfs-location.yaml
+  ```
+
+Then:
 
 ```
 ./build.sh
