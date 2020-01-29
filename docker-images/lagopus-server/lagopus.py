@@ -37,7 +37,7 @@ def lagopus_api_get_jobs():
 @app.route('/')
 @app.route('/index.html')
 def index():
-    pagename = ""
+    pagename = "Home"
     return render_template('index.html', pagename=pagename, jobcount=len(lagopus_api_get_jobs()))
 
 @app.route('/jobs.html')
