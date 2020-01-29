@@ -1,14 +1,48 @@
 {% extends "base.html" %}
-{% block content %} 
+{% block content %}
 
-<!-- Page Heading -->
+<!-- New job modal -->
+<div class="modal" id="jobUploadModal" tabindex="-1" role=
+"dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Modal title</h5><button type=
+        "button" class="close" data-dismiss="modal" aria-label=
+        "Close"><span aria-hidden="true">×</span></button>
+      </div>
+      <form action="/upload" method="post" enctype=
+      "multipart/form-data">
+        <div class="modal-body">
+          <div class="input-group">
+            <div class="custom-file">
+              <input type="file" name="file" class=
+              "custom-file-input" id="inputGroupFile01">
+              <label class="custom-file-label" for=
+              "inputGroupFile01">Choose file</label>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary"
+          data-dismiss="modal">Cancel</button> <button type=
+          "submit" class="btn btn-primary">Create job</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Page heading + new job button -->
 <div class=
 "d-sm-flex align-items-center justify-content-between mb-4">
-  <h1 class="h3 mb-0 text-gray-800">Overview</h1><a href="#"
-  class=
-  "d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">New
-  Job</a>
+  <h1 class="h3 mb-0 text-gray-800">Overview</h1><button class=
+  "d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm"
+  data-toggle="modal" data-target="#jobUploadModal">New
+  Job</button>
 </div>
+
+<!-- Main page content -->
 <h1 class="h3 mb-2 text-gray-800">Tables</h1>
 <div class="card shadow mb-4">
   <div class="card-header py-3">
@@ -23,8 +57,11 @@
           <th>Name</th>
           <th>Cores</th>
           <th>Memory</th>
+          <th>Deadline</th>
           <th>Driver</th>
-          <th>Start date</th>
+          <th>Active Pods</th>
+          <th>Pods</th>
+          <th>Start Time</th>
         </tr>
       </thead>
       <tfoot>
@@ -32,28 +69,46 @@
           <th>Name</th>
           <th>Cores</th>
           <th>Memory</th>
+          <th>Deadline</th>
           <th>Driver</th>
-          <th>Start date</th>
+          <th>Active Pods</th>
+          <th>Pods</th>
+          <th>Start Time</th>
         </tr>
       </tfoot>
     </table>
   </div>
-</div>
-
-{% block scripts %} 
-
+</div>{% block scripts %}
 <script src="vendor/datatables/jquery.dataTables.min.js">
-</script> 
+</script>
 <script src="vendor/datatables/dataTables.bootstrap4.min.js">
-</script> 
+</script>
+
+<!-- snippet to update job table on page load -->
 <script>
-  $(document).ready(function() {
-    $('#dataTable').DataTable( {
-        "ajax": "api/jobs"
-    } );
+$(document).ready(function() {
+  $('#dataTable').DataTable( {
+      "ajax": "api/jobs",
+      "columns": [
+        { data: 'name' },
+        { data: 'cores' },
+        { data: 'memory' },
+        { data: 'deadline' },
+        { data: 'driver' },
+        { data: 'activepods' },
+        { data: 'pods' },
+        { data: 'starttime' }
+      ]
   } );
+} );
+</script>
+
+<!-- snippet to display file name in job upload dialog -->
+<script>
+$(document).on('change', '.custom-file-input', function (event) {
+  $(this).next('.custom-file-label').html(event.target.files[0].name);
+})
 </script>
 
 {% endblock %}
-
 {% endblock %}
