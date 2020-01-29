@@ -11,5 +11,12 @@ spec:
     imagePullPolicy: Always
     ports:
     - containerPort: 80
+    volumeMounts:
+      - name: nfsvol
+        mountPath: "/lagopus"
+  volumes:
+  - name: nfsvol
+    persistentVolumeClaim:
+      claimName: jobdata-pvc
   imagePullSecrets:
   - name: regcred
