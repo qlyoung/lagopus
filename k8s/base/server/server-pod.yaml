@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lagopus-server
+  labels:
+    lagopustype: external
+spec:
+  containers:
+  - name: lagopus-server
+    image: qlyoung/lagopus-server
+    imagePullPolicy: Always
+    ports:
+    - containerPort: 80
+  imagePullSecrets:
+  - name: regcred
