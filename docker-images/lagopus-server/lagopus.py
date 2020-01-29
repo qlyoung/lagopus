@@ -38,12 +38,12 @@ def lagopus_api_get_jobs():
 @app.route('/index.html')
 def index():
     pagename = ""
-    return render_template('index.html', pagename=pagename)
+    return render_template('index.html', pagename=pagename, jobcount=len(lagopus_api_get_jobs()))
 
 @app.route('/jobs.html')
 def jobs():
     pagename = "Jobs"
-    return render_template('jobs.html', pagename=pagename, jobcount=len(lagopus_api_get_jobs()))
+    return render_template('jobs.html', pagename=pagename)
 
 @app.route('/crashes.html')
 def crashes():
