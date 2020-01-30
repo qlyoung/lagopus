@@ -23,6 +23,7 @@ from kubernetes import client, config
 DIR_LAGOPUS = "/lagopus"  # state directory
 SUBDIR_LAGOPUS_JOBS = "jobs"
 DIR_LAGOPUS_JOBS = DIR_LAGOPUS + "/" + SUBDIR_LAGOPUS_JOBS  # state directory for jobs
+lagoconfig = {"defaults": {"cores": 2, "memory": 200, "deadline": 240,}}
 # ----------------------------------------
 
 
@@ -57,7 +58,10 @@ def lagopus_get_kubeapis():
 
 apis = lagopus_get_kubeapis()
 
-def lagopus_k8s_create_job(name, driver, target, cores=2, memory=200, deadline=240, namespace="default"):
+
+def lagopus_k8s_create_job(
+    name, driver, target, cores=2, memory=200, deadline=240, namespace="default"
+):
     """
     Add a new job.
     """
@@ -114,11 +118,13 @@ def lagopus_k8s_get_jobs(namespace="default"):
                 onejob["driver"] = ev.value
         is_complete = False
         if job.status.conditions:
-            is_complete = all(map(lambda c: c.type == "Complete", job.status.conditions))
+            is_complete = all(
+                map(lambda c: c.type == "Complete", job.status.conditions)
+            )
         onejob["status"] = "Complete" if is_complete else "Incomplete"
         jobpods = apis["corev1"].list_namespaced_pod(
-                namespace, label_selector="job-name = {}".format(job.metadata.name)
-            )
+            namespace, label_selector="job-name = {}".format(job.metadata.name)
+        )
         if jobpods is not None and jobpods.items is not None:
             podnames = list(map(lambda x: x.metadata.name, jobpods.items))
         onejob["activepods"] = job.status.active
@@ -178,28 +184,53 @@ def index():
 def upload():
     # check if the post request has the file part
     if "file" not in request.files:
-        print(request.headers)
-        print(request.files)
-        flash("No file part")
         return "No file part"
     file = request.files["file"]
     # if user does not select file, browser also
     # submit an empty part without filename
-    if file.filename == "":
+    if not file or file.filename == "":
         flash("No selected file")
         return redirect(request.url)
-    if file:
-        filename = secure_filename(file.filename)
-        savepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-        file.save(savepath)
-        lagopus_k8s_create_job(filename, 'afl', savepath, cores=2, memory=200, deadline=240, namespace="default")
-        return redirect(url_for("jobs", filename=filename))
+
+    jobname = request.form.get("jobname", "")
+    if jobname == "":
+        flash("No job name")
+        return redirect(request.url)
+
+    driver = request.form.get("driver", "")
+    if driver == "":
+        flash("No driver specified")
+        return redirect(request.url)
+
+    cores = int(request.form.get("cores", lagoconfig["defaults"]["cores"]))
+    memory = int(request.form.get("memory", lagoconfig["defaults"]["memory"]))
+    deadline = int(request.form.get("deadline", lagoconfig["defaults"]["deadline"]))
+
+    filename = secure_filename(file.filename)
+    savepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+    file.save(savepath)
+    lagopus_k8s_create_job(
+        jobname,
+        driver,
+        savepath,
+        cores=cores,
+        memory=memory,
+        deadline=deadline,
+        namespace="default",
+    )
+    return redirect(url_for("jobs", filename=filename))
 
 
 @app.route("/jobs.html")
 def jobs():
     pagename = "Jobs"
-    return render_template("jobs.html", pagename=pagename)
+    return render_template(
+        "jobs.html",
+        pagename=pagename,
+        defaultdeadline=lagoconfig["defaults"]["deadline"],
+        defaultmemory=lagoconfig["defaults"]["memory"],
+        defaultcores=lagoconfig["defaults"]["cores"],
+    )
 
 
 @app.route("/crashes.html")

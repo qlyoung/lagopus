@@ -14,14 +14,79 @@
       <form action="/upload" method="post" enctype=
       "multipart/form-data">
         <div class="modal-body">
-          <div class="input-group">
-            <div class="custom-file">
-              <input type="file" name="file" class=
-              "custom-file-input" id="inputGroupFile01">
-              <label class="custom-file-label" for=
-              "inputGroupFile01">Choose file</label>
+
+          <!-- Target .zip upload -->
+	  <div class="form-group">
+	    <div class="input-group">
+              <div class="custom-file">
+                <input type="file" required="required" name="file" class="custom-file-input" id="inputGroupFile01">
+                <label class="custom-file-label" for=
+                "inputGroupFile01">Choose target .zip</label>
+              </div>
             </div>
-          </div>
+	  </div>
+
+          <!-- Job name -->
+	  <div class="form-group">
+	    <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text">Job name</span>
+              </div>
+              <input type="text" required="required" class="form-control" name="jobname" aria-label="Job name">
+            </div>
+	  </div>
+
+          <!-- Fuzzer -->
+	  <div class="form-group">
+            <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text">Fuzzer</span>
+              </div>
+              <select class="custom-select" required="required" name="driver">
+                <option>afl</option>
+                <option>libFuzzer</option>
+              </select>
+            </div>
+	  </div>
+
+	  <!-- Cores -->
+	  <div class="form-group">
+            <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text">Cores</span>
+              </div>
+	      <div>
+                <input type="text" placeholder="{{ defaultcores }}" name="cores" aria-label="Cores">
+	      </div>
+            </div>
+	  </div>
+
+	  <!-- Memory -->
+	  <div class="form-group">
+            <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text">Memory</span>
+              </div>
+	      <input type="text" placeholder="{{ defaultmemory }}" name="memory" aria-label="Memory">
+              <div class="input-group-append">
+                <span class="input-group-text">Mi</span>
+              </div>
+            </div>
+	  </div>
+
+	  <!-- Deadline -->
+	  <div class="form-group">
+            <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text">Deadline</span>
+              </div>
+	      <input type="text" placeholder="{{ defaultdeadline }}" name="deadline" aria-label="Deadline">
+              <div class="input-group-append">
+                <span class="input-group-text">seconds</span>
+              </div>
+            </div>
+	  </div>
+
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary"
@@ -34,10 +99,9 @@
 </div>
 
 <!-- Page heading + new job button -->
-<div class=
-"d-sm-flex align-items-center justify-content-between mb-4">
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
   <h1 class="h3 mb-0 text-gray-800">Overview</h1><button class=
-  "d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm"
+  "d-none d-sm-inline-block btn btn-lg btn-primary shadow-lg"
   data-toggle="modal" data-target="#jobUploadModal">New
   Job</button>
 </div>
