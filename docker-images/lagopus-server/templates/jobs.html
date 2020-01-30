@@ -7,7 +7,7 @@
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Modal title</h5><button type=
+        <h5 class="modal-title">Create new job</h5><button type=
         "button" class="close" data-dismiss="modal" aria-label=
         "Close"><span aria-hidden="true">×</span></button>
       </div>
@@ -55,9 +55,7 @@
               <div class="input-group-prepend">
                 <span class="input-group-text">Cores</span>
               </div>
-	      <div>
-                <input type="text" placeholder="{{ defaultcores }}" name="cores" aria-label="Cores">
-	      </div>
+              <input type="text" class="form-control" placeholder="{{ defaultcores }}" name="cores" aria-label="Cores">
             </div>
 	  </div>
 
@@ -67,7 +65,7 @@
               <div class="input-group-prepend">
                 <span class="input-group-text">Memory</span>
               </div>
-	      <input type="text" placeholder="{{ defaultmemory }}" name="memory" aria-label="Memory">
+	      <input type="text" class="form-control" placeholder="{{ defaultmemory }}" name="memory" aria-label="Memory">
               <div class="input-group-append">
                 <span class="input-group-text">Mi</span>
               </div>
@@ -80,7 +78,7 @@
               <div class="input-group-prepend">
                 <span class="input-group-text">Deadline</span>
               </div>
-	      <input type="text" placeholder="{{ defaultdeadline }}" name="deadline" aria-label="Deadline">
+	      <input type="text" class="form-control" placeholder="{{ defaultdeadline }}" name="deadline" aria-label="Deadline">
               <div class="input-group-append">
                 <span class="input-group-text">seconds</span>
               </div>
@@ -102,12 +100,10 @@
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
   <h1 class="h3 mb-0 text-gray-800">Overview</h1><button class=
   "d-none d-sm-inline-block btn btn-lg btn-primary shadow-lg"
-  data-toggle="modal" data-target="#jobUploadModal">New
-  Job</button>
+  data-toggle="modal" data-target="#jobUploadModal">NEW JOB</button>
 </div>
 
 <!-- Main page content -->
-<h1 class="h3 mb-2 text-gray-800">Tables</h1>
 <div class="card shadow mb-4">
   <div class="card-header py-3">
     <h6 class="m-0 font-weight-bold text-primary">Recent
