@@ -93,7 +93,7 @@ FUZZERS_ALIVE=1
 ELAPSED_TIME=$(($(date -u +%s) - $STARTTIME))
 
 while [ "$FUZZERS_ALIVE" -ne "0" -a ! -f /shouldexit -a ! $ELAPSED_TIME -gt $FUZZER_TIMEOUT ]; do
-	FUZZERS_ALIVE=$(ps -ef | grep -v "grep" | grep "$TARGET" | wc -l) 
+	FUZZERS_ALIVE=$(ps -ef | grep -v "grep" | grep "$TARGET" | wc -l)
 	ELAPSED_TIME=$(($(date -u +%s) - $STARTTIME))
 	CPU_USAGE=$(mpstat 2 1 | awk '$12 ~ /[0-9.]+/ { print 100 - $12"%" }' | tail -n 1)
 	MEM_USAGE=$(free -h | grep "Mem" | tr -s ' ' | cut -d' ' -f3)
@@ -117,6 +117,47 @@ if [ -f /shouldexit ]; then
   printf "Graceful exit requested, exiting.\n"
 fi
 
-/stop.sh
+if ["$DRIVER" == "afl" ]; then
+	afl-multikill -S $(jq .session $AFLMCC)
+fi
+
+# collect results based on the driver
+mkdir jobresults
+mkdir jobresults/corpus     # for generated corpus
+mkdir jobresults/crashes    # for bug-triggering corpus inputs
+mkdir jobresults/misc       # for miscellaneous job foo
+
+if [ "$DRIVER" == "afl" ]; then
+  # in the afl case, afl uses /jobdata/results as its sync dir
+
+  # Verify, deduplicate and classify crashes
+  printf "Analyzing crashes...\n"
+  afl-collect -d ./jobresults/crashes/crashes.db -e gdb_script -r -rr -j $CORES $RESULT ./jobresults/crashes/ -- $TARGET
+
+  # Minimize corpus
+  printf "Minimizing corpus...\n"
+  afl-minimize -c ./jobresults/corpus --cmin --cmin-mem-limit=none --tmin --tmin-mem-limit=none -j $CORES $RESULT -- $TARGET
+
+  # FIXME: these will overwrite each other in the copy
+  printf "Copying miscellaneous datum...\n"
+  find $RESULT -type f -name 'fuzzer_stats' | xargs cp -t jobresults/misc
+
+elif [ "$DRIVER" == "libfuzzer" ]; then
+  # in the libfuzzer case, corpus data is written to /jobdata/results
+
+  cp -r $RESULT/* jobresults/misc/
+  # presently libfuzzer kills itself when it finds a bug, and just writes a
+  # normal corpus file but prefixed with the type of bug it found
+  cp -r $RESULT/crash* jobresults/crashes/
+  cp -r $RESULT/leak* jobresults/crashes/
+  cp -r $RESULT/*slow* jobresults/crashes/
+  cp fuzz*.log jobresults/misc/
+
+fi
+
+# upload results
+zip -r jobresults.zip jobresults
+
+cp jobresults.zip $JOBDATA
 
 exit 0
