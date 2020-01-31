@@ -1,3 +1,7 @@
+<p align="center">
+<img src="https://raw.githubusercontent.com/qlyoung/lagpus/master/lagopus.svg" alt="Icon" width="20%"/>
+</p>
+
 lagopus
 -------
 
