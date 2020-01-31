@@ -3,28 +3,27 @@
 # Copyright (C) Quentin Young 2020
 # MIT License
 
-# ----
-# Kubernetes stuff
-# ----
-
-#!/usr/bin/env python3
-import os
-import stat
-import pathlib
-import shutil
-import subprocess
-import datetime
-import yaml
-import jinja2
-
-from kubernetes import client, config
-
 # Global settings ------------------------
 DIR_LAGOPUS = "/lagopus"  # state directory
 SUBDIR_LAGOPUS_JOBS = "jobs"
 DIR_LAGOPUS_JOBS = DIR_LAGOPUS + "/" + SUBDIR_LAGOPUS_JOBS  # state directory for jobs
 lagoconfig = {"defaults": {"cores": 2, "memory": 200, "deadline": 240,}}
 # ----------------------------------------
+
+# ---
+# k8s
+# ---
+
+import os
+import stat
+import pathlib
+import shutil
+import datetime
+import yaml
+import jinja2
+
+from kubernetes import client, config
+from kubernetes.client.rest import ApiException
 
 
 def lagopus_sanitycheck():
@@ -102,6 +101,8 @@ def lagopus_k8s_create_job(
     finally:
         print("API response:\n{}".format(response))
 
+    return response
+
 
 def lagopus_k8s_get_jobs(namespace="default"):
     jobs = []
@@ -134,7 +135,117 @@ def lagopus_k8s_get_jobs(namespace="default"):
         # print("\tPods:")
         #     print("\t- {}\t[{}]".format(pod.metadata.name, pod.status.phase))
         jobs.append(onejob)
-    return {"data": jobs}
+    return jobs
+
+
+# ---
+# Backend
+# ---
+import mysql.connector
+from mysql.connector import errorcode
+
+dbconf = {
+    "user": "root",
+    "password": "lagopus12345",
+    "host": "localhost",
+    "database": "lagopus",
+    "raise_on_warnings": True,
+    "tables": {
+        "jobs": {
+            "sql_create": "CREATE TABLE `jobs` ("
+            " `name` varchar(20) NOT NULL,"
+            " `driver` varchar(20) NOT NULL,"
+            " `target` varchar(20) NOT NULL,"
+            " `cores` int(11) NOT NULL,"
+            " `memory` int(11) NOT NULL,"
+            " `deadline` int(11) NOT NULL,"
+            " `start_time` timestamp,"
+            " PRIMARY KEY (`name`)"
+            ") ENGINE=InnoDB"
+        }
+    },
+}
+
+
+def lagopus_init_db():
+    try:
+        dc = {k: dbconf[k] for k in ["user", "password", "host", "raise_on_warnings"]}
+        cnx = mysql.connector.connect(**dc)
+    except mysql.connector.Error as err:
+        print("Couldn't connect to MySQL: {}".format(err))
+        exit(1)
+
+    cursor = cnx.cursor()
+
+    try:
+        # try to use database
+        cursor.execute("USE {}".format(dbconf["database"]))
+    except mysql.connector.Error as err:
+        print("Database {} does not exists.".format(dbconf["database"]))
+        if err.errno == errorcode.ER_BAD_DB_ERROR:
+            # database doesn't exist; try to create it
+            try:
+                cursor.execute(
+                    "CREATE DATABASE {} DEFAULT CHARACTER SET 'utf8'".format(
+                        dbconf["database"]
+                    )
+                )
+            except mysql.connector.Error as err:
+                print("Failed creating database: {}".format(err))
+                exit(1)
+
+            print("Database {} created successfully.".format(dbconf["database"]))
+            cnx.database = dbconf["database"]
+        else:
+            print(err)
+            exit(1)
+
+    for k, v in dbconf["tables"].items():
+        try:
+            cursor.execute(v["sql_create"])
+        except mysql.connector.Error as err:
+            if err.errno == errorcode.ER_TABLE_EXISTS_ERROR:
+                print("Table '{}' exists".format(k))
+            else:
+                print(err.msg)
+                exit(1)
+
+    print("Initialized database.")
+
+    cnx.commit()
+    cursor.close()
+    return cnx
+
+
+cnx = lagopus_init_db()
+
+
+def lagopus_create_job(name, driver, target, cores=2, memory=200, deadline=240):
+    # insert new job into db
+    cursor = cnx.cursor()
+    cursor.execute(
+        "INSERT INTO jobs (name, driver, target, cores, memory, deadline) VALUES ('{}', '{}', '{}', {}, {}, {})".format(
+            name, driver, target, cores, memory, deadline
+        )
+    )
+    cnx.commit()
+    cursor.close()
+
+    # create in k8s
+    lagopus_k8s_create_job(name, driver, target, cores, memory, deadline)
+
+
+def lagopus_get_job():
+    # update db from k8s
+    # ...job status, etc
+
+    # fetch from db
+    cursor = cnx.cursor(dictionary=True, buffered=True)
+    cursor.execute("SELECT * FROM jobs")
+    result = cursor.fetchall()
+    cursor.close()
+    print("Result: {}".format(result))
+    return result
 
 
 # ---
@@ -156,12 +267,14 @@ app = Flask(__name__)
 # --------
 @app.route("/api/createjob")
 def lagopus_api_create_job():
-    return lagopus_k8s_create_job()
+    pass
 
 
 @app.route("/api/jobs")
 def lagopus_api_get_jobs():
-    return lagopus_k8s_get_jobs()
+    jobs = lagopus_get_job()
+    jobs = jobs if jobs is not None else []
+    return {"data": jobs}
 
 
 # -------------
@@ -175,9 +288,9 @@ app.config["SECRET_KEY"] = "389afsd89j34fasd"
 @app.route("/index.html")
 def index():
     pagename = "Home"
-    return render_template(
-        "index.html", pagename=pagename, jobcount=len(lagopus_api_get_jobs())
-    )
+    jobs = lagopus_api_get_jobs()
+    jc = len(jobs["data"]) if jobs is not None else 0
+    return render_template("index.html", pagename=pagename, jobcount=jc)
 
 
 @app.route("/upload", methods=["POST"])
@@ -209,14 +322,8 @@ def upload():
     filename = secure_filename(file.filename)
     savepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     file.save(savepath)
-    lagopus_k8s_create_job(
-        jobname,
-        driver,
-        savepath,
-        cores=cores,
-        memory=memory,
-        deadline=deadline,
-        namespace="default",
+    lagopus_create_job(
+        jobname, driver, savepath, cores=cores, memory=memory, deadline=deadline
     )
     return redirect(url_for("jobs", filename=filename))
 

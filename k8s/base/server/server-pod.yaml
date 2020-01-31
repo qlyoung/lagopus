@@ -14,9 +14,21 @@ spec:
     volumeMounts:
       - name: nfsvol
         mountPath: "/lagopus"
+  - name: mysql
+    image: mysql:8.0
+    env:
+    - name: MYSQL_ROOT_PASSWORD
+      value: lagopus12345
+    ports:
+    - containerPort: 3306
+      name: mysql
+    volumeMounts:
+    - name: nfsvol
+      mountPath: /var/lib/mysql
+      subPath: database
   volumes:
   - name: nfsvol
     persistentVolumeClaim:
-      claimName: jobdata-pvc
+      claimName: lagopus-pvc
   imagePullSecrets:
   - name: regcred
