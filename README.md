@@ -205,7 +205,7 @@ On Ubuntu 18.04:
 - Export this share:
 
   ```
-  echo "/opt/lagopus_storage *(rw,sync,no_subtree_check" >> /etc/exports
+  echo "/opt/lagopus_storage *(rw,sync,no_subtree_check,no_root_squash)" >> /etc/exports
   ```
 
 - Open firewall to allow NFS
