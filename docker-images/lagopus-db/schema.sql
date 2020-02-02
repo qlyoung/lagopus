@@ -6,7 +6,7 @@ CREATE TABLE `jobs` (
     `cores` int(11) NOT NULL,
     `memory` int(11) NOT NULL,
     `deadline` int(11) NOT NULL,
-    `start_time` timestamp,
+    `create_time` timestamp,
     PRIMARY KEY (`job_id`)
   ) ENGINE=InnoDB;
 CREATE TABLE `crashes` (
