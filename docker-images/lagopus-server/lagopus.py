@@ -42,9 +42,12 @@ def lagopus_sanitycheck():
 def lagopus_jobid(name, driver):
     """
     Generate a unique job ID based on the job name.
+
+    ID conforms to DNS-1123 restrictions so it can be used as the name for k8s
+    resources without modification.
     """
     now = datetime.datetime.now()
-    return "{}-{}.{}".format(name, driver, now.strftime("%Y_%m_%d_%H_%M_%S"))
+    return "{}.{}.{}".format(name, driver, now.strftime("%Y-%m-%d-%H-%M-%S"))
 
 
 def lagopus_get_kubeapis():
@@ -59,14 +62,12 @@ apis = lagopus_get_kubeapis()
 
 
 def lagopus_k8s_create_job(
-    name, driver, target, cores=2, memory=200, deadline=240, namespace="default"
+    jobid, driver, target, cores=2, memory=200, deadline=240, namespace="default"
 ):
     """
     Add a new job.
     """
     lagopus_sanitycheck()
-
-    jobid = lagopus_jobid(name, driver)
 
     env = jinja2.Environment(loader=jinja2.FileSystemLoader("./k8s/"))
 
@@ -78,7 +79,7 @@ def lagopus_k8s_create_job(
     os.chmod(jobdir, st.st_mode | stat.S_IWOTH | stat.S_IXOTH | stat.S_IROTH)
     print("Job directory: {}".format(jobdir))
     jobconf = {}
-    jobconf["jobname"] = name
+    jobconf["jobname"] = jobid
     jobconf["jobid"] = jobid
     jobconf["cpu"] = str(cores)
     jobconf["memory"] = "{}Mi".format(memory)
@@ -92,6 +93,7 @@ def lagopus_k8s_create_job(
         genjob.write(rj)
     shutil.copy(target, jobdir + "/" + "target.zip")
 
+    response = ""
     try:
         response = apis["batchv1"].create_namespaced_job(
             jobyaml["metadata"]["namespace"], jobyaml, pretty=True
@@ -144,95 +146,60 @@ def lagopus_k8s_get_jobs(namespace="default"):
 import mysql.connector
 from mysql.connector import errorcode
 
-dbconf = {
+DBCONF = {
     "user": "root",
-    "password": "lagopus12345",
+    "password": "lagopus",
     "host": "localhost",
     "database": "lagopus",
     "raise_on_warnings": True,
-    "tables": {
-        "jobs": {
-            "sql_create": "CREATE TABLE `jobs` ("
-            " `name` varchar(20) NOT NULL,"
-            " `driver` varchar(20) NOT NULL,"
-            " `target` varchar(20) NOT NULL,"
-            " `cores` int(11) NOT NULL,"
-            " `memory` int(11) NOT NULL,"
-            " `deadline` int(11) NOT NULL,"
-            " `start_time` timestamp,"
-            " PRIMARY KEY (`name`)"
-            ") ENGINE=InnoDB"
-        }
-    },
+    "tables": ["jobs", "crashes"],
 }
 
 
-def lagopus_init_db():
+def lagopus_connect_db():
+    """
+    Connect to MySQL database and return result.
+
+    :return: database connection
+    """
+    cnx = None
+
     try:
-        dc = {k: dbconf[k] for k in ["user", "password", "host", "raise_on_warnings"]}
-        cnx = mysql.connector.connect(**dc)
+        connection_config = {
+            k: DBCONF[k]
+            for k in ["user", "password", "host", "database", "raise_on_warnings"]
+        }
+        cnx = mysql.connector.connect(**connection_config)
+        print("Initialized database.")
     except mysql.connector.Error as err:
         print("Couldn't connect to MySQL: {}".format(err))
-        exit(1)
 
-    cursor = cnx.cursor()
-
-    try:
-        # try to use database
-        cursor.execute("USE {}".format(dbconf["database"]))
-    except mysql.connector.Error as err:
-        print("Database {} does not exists.".format(dbconf["database"]))
-        if err.errno == errorcode.ER_BAD_DB_ERROR:
-            # database doesn't exist; try to create it
-            try:
-                cursor.execute(
-                    "CREATE DATABASE {} DEFAULT CHARACTER SET 'utf8'".format(
-                        dbconf["database"]
-                    )
-                )
-            except mysql.connector.Error as err:
-                print("Failed creating database: {}".format(err))
-                exit(1)
-
-            print("Database {} created successfully.".format(dbconf["database"]))
-            cnx.database = dbconf["database"]
-        else:
-            print(err)
-            exit(1)
-
-    for k, v in dbconf["tables"].items():
-        try:
-            cursor.execute(v["sql_create"])
-        except mysql.connector.Error as err:
-            if err.errno == errorcode.ER_TABLE_EXISTS_ERROR:
-                print("Table '{}' exists".format(k))
-            else:
-                print(err.msg)
-                exit(1)
-
-    print("Initialized database.")
-
-    cnx.commit()
-    cursor.close()
     return cnx
 
 
-cnx = lagopus_init_db()
+cnx = lagopus_connect_db()
+
+if not cnx:
+    # gunicorn will restart us until we successfully connect to the database
+    exit(1)
 
 
 def lagopus_create_job(name, driver, target, cores=2, memory=200, deadline=240):
+    # generate unique job id
+    jobid = lagopus_jobid(name, driver)
+
     # insert new job into db
     cursor = cnx.cursor()
     cursor.execute(
         "INSERT INTO jobs (name, driver, target, cores, memory, deadline) VALUES ('{}', '{}', '{}', {}, {}, {})".format(
-            name, driver, target, cores, memory, deadline
+            jobid, driver, target, cores, memory, deadline
         )
     )
     cnx.commit()
     cursor.close()
 
     # create in k8s
-    lagopus_k8s_create_job(name, driver, target, cores, memory, deadline)
+    lagopus_k8s_create_job(jobid, driver, target, cores, memory, deadline)
 
 
 def lagopus_get_job():
