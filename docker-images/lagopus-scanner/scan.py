@@ -5,6 +5,7 @@ import os
 import sqlite3
 import time
 import pprint
+import argparse
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -20,21 +21,53 @@ DBCONF = {
 }
 
 
-def process_jobresults(jobid, crashdb, cnx):
+def process_jobresults(jobid, jobresult_zip, crashdb, cnx):
     """
     Read crashes.db and export crash information into MySQL for use by the
     server.
 
     :param jobid: name of the job we are processing, same as the job
-                    directory
+                  directory
+    :param jobresult_zip: jobresults.zip ZipFile
     :param crashdb: path to sqlite3 crashes.db
-    :param cnx: connection to MySQL database to export into
+    :param cnx: database connection, or None to skip export
     """
-    cursor = cnx.cursor()
+    if not cnx:
+        print("No MySQL connection provided, won't export")
+
+    crashdb = jobresult_zip.extract(crashdb)
+
+    def export_to_mysql(entry, mysql_cnx):
+        """
+        Export a crash into mysql.
+
+        :param entry: row from crashdb as dictionary
+        :param mysql_cnx: connection to MySQL
+        """
+        mysql_cursor = mysql_cnx.cursor()
+
+        query = "INSERT INTO crashes (job_id, description, exploitability, sample_path, backtrace, backtrace_hash) VALUES (%s, %s, %s, %s, %s, %s)"
+        try:
+            mysql_cursor.execute(
+                query,
+                (
+                    jobid,
+                    entry["Classification_Description"],
+                    entry["Classification"],
+                    entry["Sample"],
+                    entry["Backtrace"],
+                    entry["Hash"],
+                ),
+            )
+        except mysql.connector.errors.IntegrityError as err:
+            print("Integrity: {}".format(err))
+
+        mysql_cnx.commit()
+        mysql_cursor.close()
 
     def dict_factory(cursor, row):
         """
-        Factory function for MySQL cursor.
+        Factory function for sqlite3 cursor.
 
         :return: each row as a dict having structure {"colname": value}
         """
@@ -48,31 +81,68 @@ def process_jobresults(jobid, crashdb, cnx):
     cdbcur = cdbcon.cursor()
     result = cdbcur.execute("SELECT * FROM Data")
     if not result:
+        print("Crash database empty, nothing to export")
         return
 
     result = [dict(row) for row in result.fetchall()]
 
     # k, insert into mysql
     for entry in result:
-        if entry["Classification"] == "INVALID":
-            continue
-        query = "INSERT INTO crashes (job_id, type, exploitability, sample_path, backtrace, backtrace_hash) VALUES ('{}', '{}', '{}', '{}', '{}', '{}')".format(
-            jobid,
-            entry["Classification_Description"].split(" ")[0],
-            entry["Classification"],
-            entry["Sample"],
-            "== No backtrace ==",
-            entry["Hash"],
-        )
-        print("Executing: {}".format(query))
-        try:
-            cursor.execute(query)
-        except mysql.connector.errors.IntegrityError as err:
-            print("Integrity: {}".format(err))
+        # TODO - figure out why real crashes are classed as INVALID
+        # if entry["Classification"] == "INVALID":
+        #     print("Classified as INVALID, skipping")
+        #     continue
 
-    cnx.commit()
-    cursor.close()
+        # pull backtrace, if any, into dictionary
+        print("Exporting entry: {}".format(entry))
+        backtrace = cdbcur.execute(
+            "SELECT Backtrace FROM Backtraces WHERE Sample = '{}'".format(
+                entry["Sample"]
+            )
+        )
+        backtrace = backtrace.fetchone() if backtrace else backtrace
+        backtrace = backtrace["Backtrace"] if backtrace else backtrace
+        print("Backtrace: {}".format(backtrace))
+        entry["Backtrace"] = backtrace
+
+        if cnx:
+            export_to_mysql(entry, cnx)
+
     cdbcon.close()
+
+
+def scan_job(jobdir, cnx):
+    """
+    Scan a single job directory.
+
+    :param jobdir: absolute path to individual job directory
+    :cnx: database connection, or None to skip export
+    """
+    # dejavu, i've just been in this place before
+    if os.path.exists(jobdir + "/.scanned"):
+        print("{} already scanned, skipping".format(jobdir))
+        return
+
+    print("Scanning job directory {}".format(jobdir))
+
+    jobresult_file = jobdir + "/jobresults.zip"
+
+    if os.path.exists(jobresult_file):
+        print("Found jobresults.zip, checking for crashes")
+        jobresult_zip = ZipFile(jobresult_file)
+        crashdbs = list(filter(lambda x: "crashes.db" in x, jobresult_zip.namelist()))
+        crashdb = crashdbs[0] if crashdbs else None
+        if crashdb is not None:
+            jobid = os.path.basename(jobdir.strip("/"))
+            print("{}: Found crashes.db".format(jobid))
+            process_jobresults(jobid, jobresult_zip, crashdb, cnx)
+        else:
+            print("No crashes.db, moving on")
+
+        # lets not visit again
+        Path(jobdir + "/.scanned").touch()
+    else:
+        print("No jobresults.zip, moving on")
 
 
 def scan(directory, cnx):
@@ -97,30 +167,7 @@ def scan(directory, cnx):
     pprint.pprint(jobdirs)
     # when you're not performing your duties, do they keep you in a little box?
     for jobdir in jobdirs:
-        # dejavu, i've just been in this place before
-        if os.path.exists(jobdir + "/.scanned"):
-            print("{} already scanned, skipping".format(jobdir))
-            continue
-
-        print("Scanning job directory {}".format(jobdir))
-
-        jobid = jobdir
-        jobresult_file = jobdir + "/jobresults.zip"
-
-        if os.path.exists(jobresult_file):
-            jobresult_zip = ZipFile(jobresult_file)
-            crashdbs = list(
-                filter(lambda x: "crashes.db" in x, jobresult_zip.namelist())
-            )
-            crashdb = crashdbs[0] if crashdbs else None
-            if crashdb is not None:
-                print("{}: Found crashes.db".format(jobid))
-                crashdb = jobresult_zip.extract(crashdb)
-                jobid = os.path.basename(jobdir.strip("/"))
-                process_jobresults(jobid, crashdb, cnx)
-
-            # lets not visit again
-            Path(jobdir + "/.scanned").touch()
+        scan_job(jobdir, cnx)
 
 
 def lagopus_connect_db():
@@ -144,18 +191,51 @@ def lagopus_connect_db():
     return cnx
 
 
+def lagopus_wait_connect_db(retry, wait):
+    """
+    Try to connect to database; if connection fails, retry after a time.
+
+    :param retry: how many times to retry; -1 for infinity
+    :param wait: how long to wait between tries, in seconds
+    :return: database connection
+    """
+    cnx = lagopus_connect_db()
+    while not cnx and retry != 0:
+        if retry > 0:
+            retry -= 1
+        print("Failed to conenct to MySQL, retrying in {}s...".format(wait))
+        time.sleep(wait)
+        cnx = lagopus_connect_db()
+
+    return cnx
+
+
 CONNECT_RETRY_TIMER = 5
 SCAN_TIMER = 15
+JOBSDIR = "/jobs"
 
 if __name__ == "__main__":
-    cnx = lagopus_connect_db()
-    while cnx is None:
-        print(
-            "Failed to conenct to MySQL, retrying in {}s...".format(CONNECT_RETRY_TIMER)
-        )
-        time.sleep(CONNECT_RETRY_TIMER)
-        cnx = lagopus_connect_db()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--jobsdir", type=str, help="where to look for job directories", default=JOBSDIR
+    )
+    parser.add_argument("--noexport", help="don't export to MySQL", action="store_true")
+    parser.add_argument("--oneshot", help="do one scan and exit", action="store_true")
+
+    args = parser.parse_args()
+
+    cnx = (
+        lagopus_wait_connect_db(-1, CONNECT_RETRY_TIMER) if not args.noexport else None
+    )
+
+    if args.oneshot:
+        scan(args.jobsdir, cnx)
+        if cnx:
+            cnx.close()
+        exit()
 
     while True:
         time.sleep(SCAN_TIMER)
-        scan("/jobs", cnx)
+        scan(args.jobsdir, cnx)
+
+    cnx.close()
