@@ -15,7 +15,7 @@ CREATE TABLE `crashes` (
     `exploitability` varchar(20),
     `sample_path` varchar(4096) NOT NULL,
     `backtrace` varchar(4096) NOT NULL,
-    `backtrace_hash` char(65),  # two md5's plus a period
+    `backtrace_hash` char(65),  # two md5s plus a period
     PRIMARY KEY (`job_name`, `backtrace_hash`)
   ) ENGINE=InnoDB;
 
