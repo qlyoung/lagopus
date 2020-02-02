@@ -80,8 +80,10 @@ if [ "$DRIVER" == "afl" ]; then
   # this path doesn't seem to exist in virtualized devices (kvm, docker)
   # bash -c 'cd /sys/devices/system/cpu; echo performance | tee cpu*/cpufreq/scaling_governor'
   afl-multicore -s 1 -v -c $AFLMCC start $CORES
+  COUNTFUZZER_CMD="pgrep -c afl-fuzz"
 elif [ "$DRIVER" == "libfuzzer" ]; then
   ./target -detect_leaks=0 -rss_limit_mb=0 -jobs=$CORES -workers=$CORES $RESULT $CORPUS &
+  COUNTFUZZER_CMD="pgrep -c $TARGET"
 else
   printf "Fuzzing driver '%s' unsupported; exiting\n" "$DRIVER"
   exit 1
@@ -95,7 +97,7 @@ FUZZERS_ALIVE=1
 ELAPSED_TIME=$(($(date -u +%s) - STARTTIME))
 
 while [ "$FUZZERS_ALIVE" -ne "0" ] && [ ! -f /shouldexit ] && [ ! $ELAPSED_TIME -gt $FUZZER_TIMEOUT ]; do
-	FUZZERS_ALIVE=$(pgrep -c "$TARGET")
+	FUZZERS_ALIVE=$(eval "$COUNTFUZZER_CMD")
 	ELAPSED_TIME=$(($(date -u +%s) - STARTTIME))
 	CPU_USAGE=$(mpstat 2 1 | awk '$12 ~ /[0-9.]+/ { print 100 - $12"%" }' | tail -n 1)
 	MEM_USAGE=$(free -h | grep "Mem" | tr -s ' ' | cut -d' ' -f3)
