@@ -191,7 +191,7 @@ def lagopus_create_job(name, driver, target, cores=2, memory=200, deadline=240):
     # insert new job into db
     cursor = cnx.cursor()
     cursor.execute(
-        "INSERT INTO jobs (name, driver, target, cores, memory, deadline) VALUES ('{}', '{}', '{}', {}, {}, {})".format(
+        "INSERT INTO jobs (job_id, driver, target, cores, memory, deadline) VALUES ('{}', '{}', '{}', {}, {}, {})".format(
             jobid, driver, target, cores, memory, deadline
         )
     )
@@ -209,6 +209,15 @@ def lagopus_get_job():
     # fetch from db
     cursor = cnx.cursor(dictionary=True, buffered=True)
     cursor.execute("SELECT * FROM jobs")
+    result = cursor.fetchall()
+    cursor.close()
+    print("Result: {}".format(result))
+    return result
+
+
+def lagopus_get_crash():
+    cursor = cnx.cursor(dictionary=True, buffered=True)
+    cursor.execute("SELECT * FROM crashes")
     result = cursor.fetchall()
     cursor.close()
     print("Result: {}".format(result))
@@ -240,8 +249,15 @@ def lagopus_api_create_job():
 @app.route("/api/jobs")
 def lagopus_api_get_jobs():
     jobs = lagopus_get_job()
-    jobs = jobs if jobs is not None else []
+    jobs = jobs if jobs else []
     return {"data": jobs}
+
+
+@app.route("/api/crashes")
+def lagopus_api_get_crashes():
+    crashes = lagopus_get_crash()
+    crashes = crashes if crashes else []
+    return {"data": crashes}
 
 
 # -------------

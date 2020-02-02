@@ -114,7 +114,7 @@
     "100%" cellspacing="0">
       <thead>
         <tr>
-          <th>Name</th>
+          <th>Job ID</th>
           <th>Cores</th>
           <th>Memory</th>
           <th>Deadline</th>
@@ -124,7 +124,7 @@
       </thead>
       <tfoot>
         <tr>
-          <th>Name</th>
+          <th>Job ID</th>
           <th>Cores</th>
           <th>Memory</th>
           <th>Deadline</th>
@@ -146,7 +146,7 @@ $(document).ready(function() {
   $('#dataTable').DataTable( {
       "ajax": "api/jobs",
       "columns": [
-        { data: 'name' },
+        { data: 'job_id' },
         { data: 'cores' },
         { data: 'memory' },
         { data: 'deadline' },

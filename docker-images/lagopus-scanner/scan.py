@@ -20,12 +20,12 @@ DBCONF = {
 }
 
 
-def process_jobresults(jobname, crashdb, cnx):
+def process_jobresults(jobid, crashdb, cnx):
     """
     Read crashes.db and export crash information into MySQL for use by the
     server.
 
-    :param jobname: name of the job we are processing, same as the job
+    :param jobid: name of the job we are processing, same as the job
                     directory
     :param crashdb: path to sqlite3 crashes.db
     :param cnx: connection to MySQL database to export into
@@ -56,8 +56,8 @@ def process_jobresults(jobname, crashdb, cnx):
     for entry in result:
         if entry["Classification"] == "INVALID":
             continue
-        query = "INSERT INTO crashes (job_name, type, exploitability, sample_path, backtrace, backtrace_hash) VALUES ('{}', '{}', '{}', '{}', '{}', '{}')".format(
-            jobname,
+        query = "INSERT INTO crashes (job_id, type, exploitability, sample_path, backtrace, backtrace_hash) VALUES ('{}', '{}', '{}', '{}', '{}', '{}')".format(
+            jobid,
             entry["Classification_Description"].split(" ")[0],
             entry["Classification"],
             entry["Sample"],
@@ -116,7 +116,7 @@ def scan(directory, cnx):
             if crashdb is not None:
                 print("{}: Found crashes.db".format(jobid))
                 crashdb = jobresult_zip.extract(crashdb)
-                jobid = jobdir
+                jobid = os.path.basename(jobdir.strip("/"))
                 process_jobresults(jobid, crashdb, cnx)
 
             # lets not visit again
