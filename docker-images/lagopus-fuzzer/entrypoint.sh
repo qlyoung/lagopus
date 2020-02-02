@@ -1,22 +1,24 @@
 #!/bin/bash
-
+#
+# Fuzz a target for a time, then analyze crashes, minimize corpus, zip results
+# and exit.
+#
 # Required environment variables:
 # - JOBDATA: absolute path to directory with target.zip
 # - DRIVER: the fuzzing driver, one of [afl, libfuzzer]
 #
 # Optional environment variables:
-# - FUZZER_TIMEOUT
+# - FUZZER_TIMEOUT: how long to fuzz for (default 3600s)
+# - CORES: how many jobs to use (default: 2)
 
 # Setup -------------------
 
-echo "called with: $@"
-
 if [ ! -d "$JOBDATA" ]; then
-  printf "Job directory %s does not exist; exiting\n" $JOBDATA
+  printf "Job directory %s does not exist; exiting\n" "$JOBDATA"
   ls /
   exit 1
 fi
-printf "Job directory: %s\n" $JOBDATA
+printf "Job directory: %s\n" "$JOBDATA"
 
 # timeout
 if [ "$FUZZER_TIMEOUT" == "" ]; then
@@ -37,11 +39,11 @@ STARTTIME="$(date -u +%s)"
 
 # Run ---------------------
 
-mkdir -p $WORKDIR
-cp $JOBDATA/target.zip $WORKDIR/
+mkdir -p "$WORKDIR"
+cp "$JOBDATA/target.zip" "$WORKDIR/"
 # wget http://jobserver:80/testjob.zip -O target.zip
 
-cd $WORKDIR
+cd "$WORKDIR" || exit 1
 
 unzip target.zip
 
@@ -55,17 +57,17 @@ AFLMCC="./target.conf"
 mkdir -p $RESULT
 
 if [ ! -f "$(pwd)/$TARGET" ]; then
-  printf "Target $(pwd)/$TARGET does not exist; exiting\n"
+  printf "Target %s/%s does not exist; exiting\n" "$(pwd)" "$TARGET"
   exit 1
 fi
 
 if [ ! -d "$(pwd)/$CORPUS" ]; then
-  printf "Corpus directory $(pwd)/$TARGET does not exist; exiting\n"
+  printf "Corpus directory %s/%s does not exist; exiting\n" "$(pwd)" "$TARGET"
   exit 1
 fi
 
-if [ "$DRIVER" == "afl" -a ! -f "$(pwd)/$AFLMCC" ]; then
-  printf "afl-multicore config file $(pwd)/$AFLMCC does not exist; exiting\n"
+if [ "$DRIVER" == "afl" ] && [ ! -f "$(pwd)/$AFLMCC" ]; then
+  printf "afl-multicore config file %s/%s does not exist; exiting\n" "$(pwd)" "$(AFLMCC)"
   exit 1
 fi
 
@@ -81,7 +83,7 @@ if [ "$DRIVER" == "afl" ]; then
 elif [ "$DRIVER" == "libfuzzer" ]; then
   ./target -detect_leaks=0 -rss_limit_mb=0 -jobs=$CORES -workers=$CORES $RESULT $CORPUS &
 else
-  printf "Fuzzing driver '$DRIVER' unsupported; exiting\n"
+  printf "Fuzzing driver '%s' unsupported; exiting\n" "$DRIVER"
   exit 1
 fi
 
@@ -90,14 +92,14 @@ touch started
 
 # Loop on pushing out stats
 FUZZERS_ALIVE=1
-ELAPSED_TIME=$(($(date -u +%s) - $STARTTIME))
+ELAPSED_TIME=$(($(date -u +%s) - STARTTIME))
 
-while [ "$FUZZERS_ALIVE" -ne "0" -a ! -f /shouldexit -a ! $ELAPSED_TIME -gt $FUZZER_TIMEOUT ]; do
-	FUZZERS_ALIVE=$(ps -ef | grep -v "grep" | grep "$TARGET" | wc -l)
-	ELAPSED_TIME=$(($(date -u +%s) - $STARTTIME))
+while [ "$FUZZERS_ALIVE" -ne "0" ] && [ ! -f /shouldexit ] && [ ! $ELAPSED_TIME -gt $FUZZER_TIMEOUT ]; do
+	FUZZERS_ALIVE=$(pgrep -c "$TARGET")
+	ELAPSED_TIME=$(($(date -u +%s) - STARTTIME))
 	CPU_USAGE=$(mpstat 2 1 | awk '$12 ~ /[0-9.]+/ { print 100 - $12"%" }' | tail -n 1)
 	MEM_USAGE=$(free -h | grep "Mem" | tr -s ' ' | cut -d' ' -f3)
-	printf "%d fuzzers alive, cpu: %s, mem: %s\n" $FUZZERS_ALIVE $CPU_USAGE $MEM_USAGE
+	printf "%d fuzzers alive, cpu: %s, mem: %s\n" "$FUZZERS_ALIVE" "$CPU_USAGE" "$MEM_USAGE"
 	sleep 1
 done
 
@@ -106,7 +108,7 @@ if [ "$FUZZERS_ALIVE" == "0" ]; then
 fi
 
 if [ $ELAPSED_TIME -gt $FUZZER_TIMEOUT ]; then
-  printf "Elapsed time %d greater than specified timeout %d\n" $ELAPSED_TIME $FUZZER_TIMEOUT
+  printf "Elapsed time %d greater than specified timeout %d\n" "$ELAPSED_TIME" "$FUZZER_TIMEOUT"
 fi
 
 if [ "$FUZZERS_ALIVE" == "0" ]; then
@@ -117,7 +119,7 @@ if [ -f /shouldexit ]; then
   printf "Graceful exit requested, exiting.\n"
 fi
 
-if ["$DRIVER" == "afl" ]; then
+if [ "$DRIVER" == "afl" ]; then
 	afl-multikill -S $(jq -r .session $AFLMCC)
 fi
 
@@ -140,7 +142,7 @@ if [ "$DRIVER" == "afl" ]; then
 
   # FIXME: these will overwrite each other in the copy
   printf "Copying miscellaneous datum...\n"
-  find $RESULT -type f -name 'fuzzer_stats' | xargs cp -t jobresults/misc
+  find $RESULT -print0 -type f -name 'fuzzer_stats' | xargs cp -t jobresults/misc
 
 elif [ "$DRIVER" == "libfuzzer" ]; then
   # in the libfuzzer case, corpus data is written to /jobdata/results
@@ -158,6 +160,6 @@ fi
 # upload results
 zip -r jobresults.zip jobresults
 
-cp jobresults.zip $JOBDATA
+cp jobresults.zip "$JOBDATA"
 
 exit 0
