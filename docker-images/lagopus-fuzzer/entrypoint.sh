@@ -134,9 +134,36 @@ mkdir jobresults/misc       # for miscellaneous job foo
 if [ "$DRIVER" == "afl" ]; then
   # in the afl case, afl uses /jobdata/results as its sync dir
 
-  # Verify, deduplicate and classify crashes
+  # Deduplicate and classify crashes
   printf "Analyzing crashes...\n"
-  afl-collect -d ./jobresults/crashes/crashes.db -e gdb_script -r -rr -j $CORES $RESULT ./jobresults/crashes/ -- $TARGET
+  afl-collect -d ./jobresults/crashes/crashes.db -e gdb_script -j $CORES $RESULT ./jobresults/crashes/ -- $TARGET
+
+  # Collect backtraces
+  sqlite3 ./jobresults/crashes/crashes.db "create table Backtraces (Sample TEXT PRIMARY KEY, Backtrace TEXT);"
+
+  for file in ./jobresults/crashes/*; do
+    fname=$(basename "$file")
+    if [ "$(basename "$file")" == "gdb_script" ] || [ "$(basename "$file")" == "crashes.db" ]; then continue; fi
+
+    # run test case and look for sanitizer crash output
+    # disabled for now because this is too fragile, only supports asan, doesn't
+    # see SIGABRT, etc. Instead just collect the run output, which will provide
+    # more info anyway
+
+    # "$TARGET" < "$file" 2>&1 | csplit - "/=============/"
+    # BT=$(cat "$(ls ./xx* | sort | tail -n 1)")
+
+    BT=$("$TARGET" < "$file" 2>&1)
+
+    printf -v BTESC "%q" "$BT"
+
+    # we do what has to be done, not because we wish to, but because we must
+    python3 - <<-EOF
+	import sqlite3 as sq; c = sq.connect("jobresults/crashes/crashes.db");
+	c.execute("insert into Backtraces (Sample, Backtrace) values (?, ?)", ("""$fname""", """$BTESC"""))
+	c.commit(); c.close();
+	EOF
+  done
 
   # Minimize corpus
   printf "Minimizing corpus...\n"

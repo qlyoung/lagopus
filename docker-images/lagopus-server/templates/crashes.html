@@ -14,7 +14,7 @@
         <thead>
           <tr>
             <th>Job</th>
-            <th>Crash Type</th>
+            <th>Description</th>
             <th>Exploitability Class</th>
             <th>Sample</th>
             <th>Backtrace</th>
@@ -24,7 +24,7 @@
         <tfoot>
           <tr>
             <th>Job</th>
-            <th>Crash Type</th>
+            <th>Description</th>
             <th>Exploitability Class</th>
             <th>Sample</th>
             <th>Backtrace</th>
@@ -49,7 +49,7 @@ $(document).ready(function() {
       "ajax": "api/crashes",
       "columns": [
         { data: 'job_id' },
-        { data: 'type' },
+        { data: 'description' },
         { data: 'exploitability' },
         { data: 'sample_path' },
         { data: 'backtrace' },
