@@ -2,6 +2,7 @@
 WD=$(pwd)
 
 function build_tag_push() {
+  printf ">>> Building docker image '%s'\n" "$1"
   cd docker-images/$1
   SHA=$(docker build -q . | cut -d':' -f2)
   echo "Tagging fuzzer ($(pwd))"
