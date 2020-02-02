@@ -118,7 +118,7 @@ if [ -f /shouldexit ]; then
 fi
 
 if ["$DRIVER" == "afl" ]; then
-	afl-multikill -S $(jq .session $AFLMCC)
+	afl-multikill -S $(jq -r .session $AFLMCC)
 fi
 
 # collect results based on the driver
