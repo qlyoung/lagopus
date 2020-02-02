@@ -9,7 +9,8 @@ COPY ./lagopus.py ./
 FROM tiangolo/meinheld-gunicorn:python3.7
 
 WORKDIR /app/
-RUN pip install flask kubernetes mysql-connector-python
 COPY --from=0 /build/ ./
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
 ENV MODULE_NAME="lagopus"
