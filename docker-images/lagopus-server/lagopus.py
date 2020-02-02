@@ -39,15 +39,20 @@ def lagopus_sanitycheck():
             pathlib.Path(d).mkdir(parents=True, exist_ok=True)
 
 
-def lagopus_jobid(name, driver):
+def lagopus_jobid(name, driver, time):
     """
     Generate a unique job ID based on the job name.
 
     ID conforms to DNS-1123 restrictions so it can be used as the name for k8s
     resources without modification.
+    :name: job name as provided by user
+    :driver: fuzzing driver
+    :time: arbitrary time value; should be the creation time, to provide
+           uniqueness when the user provides multiple jobs with the same name
+    :rtype: str
+    :return: job ID
     """
-    now = datetime.datetime.now()
-    return "{}.{}.{}".format(name, driver, now.strftime("%Y-%m-%d-%H-%M-%S"))
+    return "{}.{}.{}".format(name, driver, time.strftime("%Y-%m-%d-%H-%M-%S"))
 
 
 def lagopus_get_kubeapis():
@@ -186,13 +191,16 @@ if not cnx:
 
 def lagopus_create_job(name, driver, target, cores=2, memory=200, deadline=240):
     # generate unique job id
-    jobid = lagopus_jobid(name, driver)
+    now = datetime.datetime.now()
+    jobid = lagopus_jobid(name, driver, now)
+
+    create_timestamp = now.strftime("%Y-%m-%d %H-%M-%S");
 
     # insert new job into db
     cursor = cnx.cursor()
     cursor.execute(
-        "INSERT INTO jobs (job_id, driver, target, cores, memory, deadline) VALUES ('{}', '{}', '{}', {}, {}, {})".format(
-            jobid, driver, target, cores, memory, deadline
+        "INSERT INTO jobs (job_id, driver, target, cores, memory, deadline, create_time) VALUES ('{}', '{}', '{}', {}, {}, {}, '{}')".format(
+            jobid, driver, target, cores, memory, deadline, create_timestamp
         )
     )
     cnx.commit()
