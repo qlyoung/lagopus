@@ -275,6 +275,24 @@ Then kill all its jobs:
 kubectl delete jobs --all
 ```
 
+Todo
+----
+- Backtrace collection
+- Job monitoring
+- Source coverage analysis
+- Better deployment process
+- Job input validation
+- Job tags
+- CLI client
+- Corpus management
+- Docker-compose support
+- Reduce k8s tendrils
+- Reduce vendored code
+- Python support
+- More fuzzers
+- Performance audit
+- Security (always last :-)
+
 Dev Notes
 ---------
 Miscellaneous bits of information that may be relevant in the future, or for
