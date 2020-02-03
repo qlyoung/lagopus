@@ -10,6 +10,9 @@
 # Optional environment variables:
 # - FUZZER_TIMEOUT: how long to fuzz for (default 3600s)
 # - CORES: how many jobs to use (default: 2)
+# - INFLUXDB: if specified, fuzzing stats are posted to the specified InfluxDB
+#   instance. The format must be "<host>:<port>:<database>.
+# - INFLUXDB_DB: the database to insert into; must be set if INFLUXDB is set
 
 # Setup -------------------
 
@@ -33,6 +36,15 @@ if [ "$CORES" == "" ]; then
   CORES=2
 fi
 printf "Using %d cores" $CORES
+
+if [ "$INFLUXDB" != "" ]; then
+  INFLUXDB_HOST=$(echo "$INFLUXDB" | cut -d':' -f1)
+  INFLUXDB_PORT=$(echo "$INFLUXDB" | cut -d':' -f2)
+  if [[ -z "$INFLUXDB_DB" ]]; then
+    echo "Specified InfluxDB host but not a database; exiting"
+    exit 1
+  fi
+fi
 
 # record start time to compute elapsed time later
 STARTTIME="$(date -u +%s)"
@@ -102,6 +114,10 @@ while [ "$FUZZERS_ALIVE" -ne "0" ] && [ ! -f /shouldexit ] && [ ! $ELAPSED_TIME 
 	CPU_USAGE=$(mpstat 2 1 | awk '$12 ~ /[0-9.]+/ { print 100 - $12"%" }' | tail -n 1)
 	MEM_USAGE=$(free -h | grep "Mem" | tr -s ' ' | cut -d' ' -f3)
 	printf "%d fuzzers alive, cpu: %s, mem: %s\n" "$FUZZERS_ALIVE" "$CPU_USAGE" "$MEM_USAGE"
+
+	if [[ ! -z "$INFLUXDB" && "$DRIVER" == "afl" ]]; then
+	  bash /monitor-afl.sh -i "$INFLUXDB_HOST" -p $INFLUXDB_PORT -d "$INFLUXDB_DB" $RESULT
+	fi
 	sleep 1
 done
 

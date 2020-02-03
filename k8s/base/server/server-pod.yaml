@@ -29,6 +29,15 @@ spec:
     - name: nfsvol
       mountPath: /var/lib/mysql
       subPath: database
+  - name: influxdb
+    image: influxdb
+    ports:
+    - containerPort: 8086
+      name: influxdb
+    volumeMounts:
+    - name: nfsvol
+      mountPath: /var/lib/mysql
+      subPath: database
   volumes:
   - name: nfsvol
     persistentVolumeClaim:
