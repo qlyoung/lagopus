@@ -10,6 +10,17 @@ DIR_LAGOPUS_JOBS = DIR_LAGOPUS + "/" + SUBDIR_LAGOPUS_JOBS  # state directory fo
 lagoconfig = {"defaults": {"cores": 2, "memory": 200, "deadline": 240,}}
 # ----------------------------------------
 
+from flask import Flask
+from flask import render_template
+from flask import send_from_directory
+from flask import request
+from flask import flash
+from flask import redirect, url_for
+from werkzeug.utils import secure_filename
+import os
+
+app = Flask(__name__)
+
 # ---
 # k8s
 # ---
@@ -35,7 +46,7 @@ def lagopus_sanitycheck():
 
     for d in dirs:
         if not os.path.exists(d):
-            print("Creating '{}'".format(d))
+            app.logger.error("Creating '{}'".format(d))
             pathlib.Path(d).mkdir(parents=True, exist_ok=True)
 
 
@@ -82,7 +93,7 @@ def lagopus_k8s_create_job(
     pathlib.Path(jobdir).mkdir(parents=True, exist_ok=True)
     st = os.stat(jobdir)
     os.chmod(jobdir, st.st_mode | stat.S_IWOTH | stat.S_IXOTH | stat.S_IROTH)
-    print("Job directory: {}".format(jobdir))
+    app.logger.error("Job directory: {}".format(jobdir))
     jobconf = {}
     jobconf["jobname"] = jobid
     jobconf["jobid"] = jobid
@@ -104,9 +115,9 @@ def lagopus_k8s_create_job(
             jobyaml["metadata"]["namespace"], jobyaml, pretty=True
         )
     except ApiException as e:
-        print("API exception: {}".format(e))
+        app.logger.error("API exception: {}".format(e))
     finally:
-        print("API response:\n{}".format(response))
+        app.logger.error("API response:\n{}".format(response))
 
     return response
 
@@ -139,8 +150,8 @@ def lagopus_k8s_get_jobs(namespace="default"):
         onejob["pods"] = podnames
         onejob["starttime"] = str(job.status.start_time)
         onejob["jobdir"] = DIR_LAGOPUS_JOBS + "/" + job.metadata.name
-        # print("\tPods:")
-        #     print("\t- {}\t[{}]".format(pod.metadata.name, pod.status.phase))
+        # app.logger.error("\tPods:")
+        #     app.logger.error("\t- {}\t[{}]".format(pod.metadata.name, pod.status.phase))
         jobs.append(onejob)
     return jobs
 
@@ -185,9 +196,9 @@ def lagopus_connect_db():
             ]
         }
         cnx = mysql.connector.connect(**connection_config)
-        print("Initialized database.")
+        app.logger.error("Initialized database.")
     except mysql.connector.Error as err:
-        print("Couldn't connect to MySQL: {}".format(err))
+        app.logger.error("Couldn't connect to MySQL: {}".format(err))
 
     return cnx
 
@@ -227,7 +238,7 @@ def lagopus_get_job():
     cursor = cnx.cursor(dictionary=True)
     cursor.execute("SELECT * FROM jobs")
     result = cursor.fetchall()
-    print("Result: {}".format(result))
+    app.logger.error("Result: {}".format(result))
     return result
 
 
@@ -235,23 +246,14 @@ def lagopus_get_crash():
     cursor = cnx.cursor(dictionary=True)
     cursor.execute("SELECT * FROM crashes")
     result = cursor.fetchall()
-    print("Result: {}".format(result))
+    app.logger.error("Result: {}".format(result))
     return result
 
 
 # ---
 # Web
 # ---
-from flask import Flask
-from flask import render_template
-from flask import send_from_directory
-from flask import request
-from flask import flash
-from flask import redirect, url_for
-from werkzeug.utils import secure_filename
-import os
 
-app = Flask(__name__)
 
 # --------
 # JSON API
