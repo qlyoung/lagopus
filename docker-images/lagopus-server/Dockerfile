@@ -14,3 +14,4 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 ENV MODULE_NAME="lagopus"
+ENV PYTHONUNBUFFERED=TRUE
