@@ -122,6 +122,42 @@ Kubernetes cluster configuration
 If you only have 1 node, `minikube` is acceptable, but `microk8s` is still a
 better choice to eliminate KVM / Virtualbox overhead.
 
+If you already have a cluster set up, here is an Ansible playbook to do all of
+the steps described if your nodes are running microk8s on Ubuntu 18.04. Change
+`fuzzing_user` to any root-privileged account.
+
+```yaml
+- hosts: fuzzers
+  vars:
+    fuzzing_user: qlyoung
+  remote_user: {{ fuzzing_user }}
+  become: yes
+  become_method: sudo
+  gather_facts: no
+  pre_tasks:
+    - name: 'install python2'
+      raw: sudo apt-get -y install python
+  tasks:
+  - name: install-microk8s
+    command: snap install microk8s --classic
+  - name: microk8s-perms
+    command: sudo usermod -a -G microk8s {{ fuzzing_user }}
+  - name: microk8s-enable-dns
+    command: microk8s.enable dns
+  - name: set-kernel-core-pattern
+    shell: echo 'kernel.core_pattern=core' >> /etc/sysctl.conf && sysctl -p
+  - name: set-kubelet-resources
+    shell: |
+      echo '--cpu-manager-policy=static' >> /var/snap/microk8s/current/args/kubelet
+      echo '--kube-reserved="cpu=200m,memory=512Mi"' >> /var/snap/microk8s/current/args/kubelet
+      rm /var/snap/microk8s/common/var/lib/kubelet/cpu_manager_state
+      systemctl reset-failed snap.microk8s.daemon-kubelet
+      systemctl restart snap.microk8s.daemon-kubelet
+  - name: set-kernel-scheduler-performance
+    command: cd /sys/devices/system/cpu; echo performance | tee cpu*/cpufreq/scaling_governor
+    ignore_errors: yes
+```
+
 1. Install Kubernetes on your nodes
 2. On your nodes, run the following:
 
