@@ -42,6 +42,10 @@ spec:
           value: "/{{ jobid }}"
         - name: WORKDIR
           value: "/workdir"
+        - name: INFLUXDB
+          value: "lagopus-server:8086"
+        - name: INFLUXDB_DB
+          value: "{{ jobid }}"
         volumeMounts:
           - name: nfsvol
             mountPath: /{{ jobid }}
