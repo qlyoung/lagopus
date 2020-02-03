@@ -134,7 +134,10 @@
       </tfoot>
     </table>
   </div>
-</div>{% block scripts %}
+</div>
+{% endblock %} <!-- content -->
+
+{% block scripts %}
 <script src="vendor/datatables/jquery.dataTables.min.js">
 </script>
 <script src="vendor/datatables/dataTables.bootstrap4.min.js">
@@ -164,5 +167,4 @@ $(document).on('change', '.custom-file-input', function (event) {
 })
 </script>
 
-{% endblock %}
-{% endblock %}
+{% endblock %} <!-- script -->
