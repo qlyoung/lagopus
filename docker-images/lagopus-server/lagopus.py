@@ -157,6 +157,8 @@ DBCONF = {
     "host": "localhost",
     "database": "lagopus",
     "raise_on_warnings": True,
+    "buffered": True,
+    "autocommit": True,
     "tables": ["jobs", "crashes"],
 }
 
@@ -172,7 +174,15 @@ def lagopus_connect_db():
     try:
         connection_config = {
             k: DBCONF[k]
-            for k in ["user", "password", "host", "database", "raise_on_warnings"]
+            for k in [
+                "user",
+                "password",
+                "host",
+                "database",
+                "raise_on_warnings",
+                "buffered",
+                "autocommit",
+            ]
         }
         cnx = mysql.connector.connect(**connection_config)
         print("Initialized database.")
@@ -194,7 +204,7 @@ def lagopus_create_job(name, driver, target, cores=2, memory=200, deadline=240):
     now = datetime.datetime.now()
     jobid = lagopus_jobid(name, driver, now)
 
-    create_timestamp = now.strftime("%Y-%m-%d %H-%M-%S");
+    create_timestamp = now.strftime("%Y-%m-%d %H-%M-%S")
 
     # insert new job into db
     cursor = cnx.cursor()
@@ -203,7 +213,6 @@ def lagopus_create_job(name, driver, target, cores=2, memory=200, deadline=240):
             jobid, driver, target, cores, memory, deadline, create_timestamp
         )
     )
-    cnx.commit()
     cursor.close()
 
     # create in k8s
@@ -215,19 +224,17 @@ def lagopus_get_job():
     # ...job status, etc
 
     # fetch from db
-    cursor = cnx.cursor(dictionary=True, buffered=True)
+    cursor = cnx.cursor(dictionary=True)
     cursor.execute("SELECT * FROM jobs")
     result = cursor.fetchall()
-    cursor.close()
     print("Result: {}".format(result))
     return result
 
 
 def lagopus_get_crash():
-    cursor = cnx.cursor(dictionary=True, buffered=True)
+    cursor = cnx.cursor(dictionary=True)
     cursor.execute("SELECT * FROM crashes")
     result = cursor.fetchall()
-    cursor.close()
     print("Result: {}".format(result))
     return result
 
