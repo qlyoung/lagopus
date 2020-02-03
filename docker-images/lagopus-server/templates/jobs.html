@@ -148,6 +148,7 @@
 $(document).ready(function() {
   $('#dataTable').DataTable( {
       "ajax": "api/jobs",
+      "order": [[ 5, 'desc' ]],
       "columns": [
         { data: 'job_id' },
         { data: 'cores' },
