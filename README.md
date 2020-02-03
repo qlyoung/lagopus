@@ -1,3 +1,7 @@
+<p align="center">
+<img src="https://raw.githubusercontent.com/qlyoung/lagpus/master/lagopus.svg" alt="Icon" width="20%"/>
+</p>
+
 lagopus
 -------
 
@@ -241,7 +245,7 @@ On Ubuntu 18.04:
 - Export this share:
 
   ```
-  echo "/opt/lagopus_storage *(rw,sync,no_subtree_check" >> /etc/exports
+  echo "/opt/lagopus_storage *(rw,sync,no_subtree_check,no_root_squash)" >> /etc/exports
   ```
 
 - Open firewall to allow NFS
@@ -260,7 +264,22 @@ On Ubuntu 18.04:
 
 Building
 --------
-`cd` into the repository, then:
+`cd` into the repository. Make a couple kustomizations:
+
+- Set your desired IP range, on which the lagopus web app / API server should
+  be accessible (unfortunately this is a necessary complexity to allow access
+  on port 80) in the following file:
+
+  ```
+  k8s/dev/metallb-ips.yaml
+  ```
+
+- Set the path to your NFS share:
+  ```
+  k8s/dev/nfs-location.yaml
+  ```
+
+Then:
 
 ```
 ./build.sh
@@ -291,3 +310,85 @@ Then kill all its jobs:
 ```
 kubectl delete jobs --all
 ```
+
+Todo
+----
+- Backtrace collection
+- Job monitoring
+- Source coverage analysis
+- Better deployment process
+- Job input validation
+- Job tags
+- CLI client
+- Corpus management
+- Docker-compose support
+- Reduce k8s tendrils
+- Reduce vendored code
+- Python support
+- More fuzzers
+- Performance audit
+- Security (always last :-)
+
+Dev Notes
+---------
+Miscellaneous bits of information that may be relevant in the future, or for
+debugging.
+
+- `gdb` will not work in a container without `seccomp=unconfined`; this is the
+  default in k8s, so it's not explicitly set anywhere in lagopus, but when
+  running the fuzzer container manually make sure to pass
+  `--security-opt seccomp=unconfined` or you won't get the detailed analysis of
+  crashes usually provided by
+  [exploitable](https://github.com/jfoote/exploitable).
+
+- `afl` requires sysctl `kernel.core_pattern=core` to get core files. k8s has
+  support for allowing nodes to allow pods to set sysctls (pods also ave
+  settings to allow that at the pod level) which results in a taint on the node
+  and therefore requires tolerances on the pod.  However, k8s only supports
+  namespaced sysctls; `kernel.core_pattern` isn't one, and thus must be
+  manually set on the node entirely outside of k8s before starting the kubelet.
+
+- Fuzzer jobs should run with dedicated cores, for a couple reasons. The first
+  is that this is just better for performance regardless of the particular
+  fuzzer in use. The second is more subtle, and applies to fuzzers that pin
+  themselves to particular CPUs in order to increase cache locality and
+  reduce kernel scheduler overhead. `afl` in particular does this. When
+  starting up, `afl` searches for "free" (not already pinned by another
+  process) CPU cores to bind itself to, which it determines by looking at
+  `/proc`. However, `/proc` is not bind mounted into containers by default, so
+  it's possible for another process, either on the host or another container, to
+  be bound to a given CPU even though the container's `/proc` says the core is
+  free. In this case the bind will still work but now you have two processes
+  pinned to the same CPU on the host. This is far worse than not binding at
+  all. So until container runtimes fix this (if they ever do), CPU assignments
+  must be manually set on the container itself by the container runtime.
+
+  This is a bit tricky to do in k8s. First the nodes must be configured with
+  the `static` cpu policy by passing `--cpu-manager-policy=static` to kubelet.
+  Second, the pod containers must be in the "Guaranteed" QOS class, which means
+  both requests and limits for both memory and cpu must be set, and must equal
+  each other. This will cause each container to have N cpus assigned to it
+  exclusively, which solves the issue with `/proc` by sidestepping it
+  completely.
+
+  However, again there is a caveat. A pecularity of container runtimes is that
+  even when containers are assigned to specific CPUs, the containers still see
+  all of the host CPUs and don't actually know which of them have been assigned
+  to it. This again poses some complications with `afl`'s CPU pinning
+  mechanism.  `afl`'s current (upstream) CPU selection heuristics will usually
+  fail when run in a container because it tries to bind to the first available
+  CPU (as per `/proc`), typically CPU 0, which may or may not be assigned to
+  the container. If not, the system call to perform the bind -
+  `sched_setaffinity` - will fail and `afl` will bail out.  This is solved for
+  lagopus by packaging a patched `afl` that tries *all* cores until it finds
+  one that binding succeeds on. I have an open PR[0] against `afl` for this
+  patch, so hopefully at some point lagopus can go back to using upstream
+  `afl`. However, Google doesn't seem to be paying much attention to the
+  repository, so who knows how long that will take.
+
+  [0] https://github.com/google/AFL/pull/68
+
+- It would be nice to use
+  [halfempty](https://github.com/googleprojectzero/halfempty) for minimization
+  instead of the current tools, as it's much faster. This can probably be done
+  fairly easily.

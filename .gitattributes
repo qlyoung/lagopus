@@ -1,0 +1,3 @@
+docker-images/lagopus-server/templates/vendor/* linguist-vendored
+**.css
+**.scss

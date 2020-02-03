@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lagopus-server
+  labels:
+    lagopustype: external
+spec:
+  containers:
+  - name: lagopus-server
+    image: qlyoung/lagopus-server
+    imagePullPolicy: Always
+    ports:
+    - containerPort: 80
+    volumeMounts:
+      - name: nfsvol
+        mountPath: "/lagopus"
+  - name: lagopus-scanner
+    image: qlyoung/lagopus-scanner
+    volumeMounts:
+      - name: nfsvol
+        mountPath: /jobs
+        subPath: jobs
+  - name: lagopus-db
+    image: qlyoung/lagopus-db
+    ports:
+    - containerPort: 3306
+      name: mysql
+    volumeMounts:
+    - name: nfsvol
+      mountPath: /var/lib/mysql
+      subPath: database
+  volumes:
+  - name: nfsvol
+    persistentVolumeClaim:
+      claimName: lagopus-pvc
+  imagePullSecrets:
+  - name: regcred

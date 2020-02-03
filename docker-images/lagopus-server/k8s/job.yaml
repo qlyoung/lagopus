@@ -4,7 +4,6 @@ metadata:
   name: {{ jobname }}
   namespace: {{ namespace }}
 spec:
-  activeDeadlineSeconds: {{ deadline + 60 }}
   template:
     spec:
       restartPolicy: Never
@@ -13,7 +12,7 @@ spec:
       volumes:
       - name: nfsvol
         persistentVolumeClaim:
-          claimName: jobdata-pvc
+          claimName: lagopus-pvc
       containers:
       - name: fuzzer
         image: qlyoung/lagopus-fuzzer:latest
