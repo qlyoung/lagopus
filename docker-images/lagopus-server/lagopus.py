@@ -3,12 +3,6 @@
 # Copyright (C) Quentin Young 2020
 # MIT License
 
-# Global settings ------------------------
-DIR_LAGOPUS = "/lagopus"  # state directory
-SUBDIR_LAGOPUS_JOBS = "jobs"
-DIR_LAGOPUS_JOBS = DIR_LAGOPUS + "/" + SUBDIR_LAGOPUS_JOBS  # state directory for jobs
-lagoconfig = {"defaults": {"cores": 2, "memory": 200, "deadline": 240,}}
-# ----------------------------------------
 import os
 
 from flask import Flask
@@ -23,8 +17,25 @@ from werkzeug.utils import secure_filename
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError
 
-
 app = Flask(__name__)
+
+# Global settings ------------------------
+CONFIG = {
+    "dirs": {"base": "/lagopus", "jobs": "/lagopus/jobs",},
+    "database": {
+        "connection": {
+            "user": "root",
+            "password": "lagopus",
+            "host": "localhost",
+            "database": "lagopus",
+            "raise_on_warnings": True,
+            "buffered": True,
+            "autocommit": True,
+        },
+        "tables": ["jobs", "crashes"],
+    },
+    "jobs": {"cores": 2, "memory": 200, "deadline": 240,},
+}
 
 # ---
 # k8s
@@ -45,12 +56,10 @@ def lagopus_sanitycheck():
     Check that:
     - all necessary directories exist
     """
-    dirs = [DIR_LAGOPUS, DIR_LAGOPUS_JOBS]
-
-    for d in dirs:
-        if not os.path.exists(d):
-            app.logger.error("Creating '{}'".format(d))
-            pathlib.Path(d).mkdir(parents=True, exist_ok=True)
+    for k, v in CONFIG["dirs"].items():
+        if not os.path.exists(v):
+            app.logger.error("Creating '{}'".format(v))
+            pathlib.Path(v).mkdir(parents=True, exist_ok=True)
 
 
 def lagopus_jobid(name, driver, time):
@@ -92,7 +101,7 @@ def lagopus_k8s_create_job(
 
     # create job
     job = env.get_template("job.yaml")
-    jobdir = DIR_LAGOPUS_JOBS + "/" + jobid
+    jobdir = CONFIG["dirs"]["jobs"] + "/" + jobid
     pathlib.Path(jobdir).mkdir(parents=True, exist_ok=True)
     st = os.stat(jobdir)
     os.chmod(jobdir, st.st_mode | stat.S_IWOTH | stat.S_IXOTH | stat.S_IROTH)
@@ -105,7 +114,7 @@ def lagopus_k8s_create_job(
     jobconf["deadline"] = deadline
     jobconf["driver"] = driver
     jobconf["namespace"] = namespace
-    jobconf["jobpath"] = SUBDIR_LAGOPUS_JOBS + "/" + jobid
+    jobconf["jobpath"] = "jobs/" + jobid
     with open(jobdir + "/job.yaml", "w") as genjob:
         rj = job.render(**jobconf)
         jobyaml = yaml.safe_load(rj)
@@ -152,7 +161,7 @@ def lagopus_k8s_get_jobs(jobid=None, namespace="default"):
         onejob["activepods"] = job.status.active
         onejob["pods"] = podnames
         onejob["starttime"] = str(job.status.start_time)
-        onejob["jobdir"] = DIR_LAGOPUS_JOBS + "/" + job.metadata.name
+        onejob["jobdir"] = "jobs/" + job.metadata.name
         # app.logger.error("\tPods:")
         #     app.logger.error("\t- {}\t[{}]".format(pod.metadata.name, pod.status.phase))
         jobs.append(onejob)
@@ -165,19 +174,10 @@ def lagopus_k8s_get_jobs(jobid=None, namespace="default"):
 import mysql.connector
 from mysql.connector import errorcode
 
-DBCONF = {
-    "user": "root",
-    "password": "lagopus",
-    "host": "localhost",
-    "database": "lagopus",
-    "raise_on_warnings": True,
-    "buffered": True,
-    "autocommit": True,
-    "tables": ["jobs", "crashes"],
-}
+cnx = None
 
 
-def lagopus_connect_db():
+def lagopus_db_connect():
     """
     Connect to MySQL database and return result.
 
@@ -186,19 +186,7 @@ def lagopus_connect_db():
     cnx = None
 
     try:
-        connection_config = {
-            k: DBCONF[k]
-            for k in [
-                "user",
-                "password",
-                "host",
-                "database",
-                "raise_on_warnings",
-                "buffered",
-                "autocommit",
-            ]
-        }
-        cnx = mysql.connector.connect(**connection_config)
+        cnx = mysql.connector.connect(**CONFIG["database"]["connection"])
         app.logger.error("Initialized database.")
     except mysql.connector.Error as err:
         app.logger.error("Couldn't connect to MySQL: {}".format(err))
@@ -206,7 +194,26 @@ def lagopus_connect_db():
     return cnx
 
 
-cnx = lagopus_connect_db()
+def lagopus_db_cursor(**kwargs):
+    """
+    Get cursor for database
+
+    :return: database cursor
+    """
+    global cnx
+
+    if not cnx:
+        cnx = lagopus_db_connect()
+
+    try:
+        cnx.ping(reconnect=True, attempts=3, delay=5)
+    except mysql.connector.Error as err:
+        cnx = lagopus_db_connect()
+
+    return cnx.cursor(**kwargs)
+
+
+cnx = lagopus_db_connect()
 
 if not cnx:
     # gunicorn will restart us until we successfully connect to the database
@@ -222,7 +229,7 @@ def lagopus_create_job(name, driver, target, cores=2, memory=200, deadline=240):
     create_timestamp = now.strftime("%Y-%m-%d %H-%M-%S")
 
     # insert new job into db
-    cursor = cnx.cursor()
+    cursor = lagopus_db_cursor()
     cursor.execute(
         "INSERT INTO jobs (job_id, status, driver, target, cores, memory, deadline, create_time) VALUES ('{}', '{}', '{}', '{}', {}, {}, {}, '{}')".format(
             jobid, status, driver, target, cores, memory, deadline, create_timestamp
@@ -237,7 +244,7 @@ def lagopus_create_job(name, driver, target, cores=2, memory=200, deadline=240):
 
 
 def lagopus_get_job(jobid=None):
-    cursor = cnx.cursor(dictionary=True)
+    cursor = lagopus_db_cursor(dictionary=True)
 
     # update db from k8s
     # ...job status, etc
@@ -250,7 +257,7 @@ def lagopus_get_job(jobid=None):
         )
 
     # fetch from db
-    cursor = cnx.cursor(dictionary=True)
+    cursor = lagopus_db_cursor(dictionary=True)
     if jobid:
         cursor.execute(
             "SELECT * FROM jobs WHERE job_id = %(job_id)s", {"job_id": jobid}
@@ -278,7 +285,7 @@ def lagopus_get_job_eps(jobid):
 
 
 def lagopus_get_crash():
-    cursor = cnx.cursor(dictionary=True)
+    cursor = lagopus_db_cursor(dictionary=True)
     cursor.execute("SELECT * FROM crashes")
     result = cursor.fetchall()
     app.logger.error("Result: {}".format(result))
@@ -362,9 +369,9 @@ def upload():
         flash("No driver specified")
         return redirect(request.url)
 
-    cores = int(request.form.get("cores", lagoconfig["defaults"]["cores"]))
-    memory = int(request.form.get("memory", lagoconfig["defaults"]["memory"]))
-    deadline = int(request.form.get("deadline", lagoconfig["defaults"]["deadline"]))
+    cores = int(request.form.get("cores", CONFIG["jobs"]["cores"]))
+    memory = int(request.form.get("memory", CONFIG["jobs"]["memory"]))
+    deadline = int(request.form.get("deadline", CONFIG["jobs"]["deadline"]))
 
     filename = secure_filename(file.filename)
     savepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
@@ -386,9 +393,9 @@ def jobs():
     return render_template(
         "jobs.html",
         pagename=pagename,
-        defaultdeadline=lagoconfig["defaults"]["deadline"],
-        defaultmemory=lagoconfig["defaults"]["memory"],
-        defaultcores=lagoconfig["defaults"]["cores"],
+        defaultdeadline=CONFIG["jobs"]["deadline"],
+        defaultmemory=CONFIG["jobs"]["memory"],
+        defaultcores=CONFIG["jobs"]["cores"],
         jobid=jobid,
     )
 
