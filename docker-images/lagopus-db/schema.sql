@@ -1,6 +1,7 @@
 USE lagopus;
 CREATE TABLE `jobs` (
     `job_id` varchar(128) NOT NULL,
+    `status` varchar(64) NOT NULL,
     `driver` varchar(32) NOT NULL,
     `target` varchar(4096) NOT NULL,
     `cores` int(11) NOT NULL,
