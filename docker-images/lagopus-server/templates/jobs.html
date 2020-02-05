@@ -95,6 +95,12 @@
     </div>
   </div>
 </div>
+<!-- snippet to display file name in job upload dialog -->
+<script>
+$(document).on('change', '.custom-file-input', function (event) {
+  $(this).next('.custom-file-label').html(event.target.files[0].name);
+})
+</script>
 
 <!-- Page heading + new job button -->
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
@@ -136,6 +142,27 @@
       </tfoot>
     </table>
   </div>
+
+  <!-- code to update jobs table via api -->
+  <script src="vendor/datatables/jquery.dataTables.min.js"></script>
+  <script src="vendor/datatables/dataTables.bootstrap4.min.js"></script>
+  <script>
+  $(document).ready(function() {
+    $('#dataTable').DataTable( {
+        "ajax": "api/jobs",
+        "order": [[ 6, 'desc' ]],
+        "columns": [
+          { data: 'job_id' },
+          { data: 'status' },
+          { data: 'cores' },
+          { data: 'memory' },
+          { data: 'deadline' },
+          { data: 'driver' },
+          { data: 'create_time' }
+        ]
+    } );
+  } );
+  </script>
 </div>
 
 <!-- Job stats -->
@@ -149,34 +176,6 @@
     </div>
   </div>
 </div>
-
-{% endblock %} <!-- content -->
-
-{% block scripts %}
-<script src="vendor/datatables/jquery.dataTables.min.js">
-</script>
-<script src="vendor/datatables/dataTables.bootstrap4.min.js">
-</script>
-
-<!-- snippet to update job table on page load -->
-<script>
-$(document).ready(function() {
-  $('#dataTable').DataTable( {
-      "ajax": "api/jobs",
-      "order": [[ 5, 'desc' ]],
-      "columns": [
-        { data: 'job_id' },
-        { data: 'status' },
-        { data: 'cores' },
-        { data: 'memory' },
-        { data: 'deadline' },
-        { data: 'driver' },
-        { data: 'create_time' }
-      ]
-  } );
-} );
-</script>
-
 <!-- snippet to graph a job eps -->
 <script>
 window.chartColors = {
@@ -248,11 +247,4 @@ function updategraph(){
 updategraph();
 </script>
 
-<!-- snippet to display file name in job upload dialog -->
-<script>
-$(document).on('change', '.custom-file-input', function (event) {
-  $(this).next('.custom-file-label').html(event.target.files[0].name);
-})
-</script>
-
-{% endblock %} <!-- script -->
+{% endblock %} <!-- content -->

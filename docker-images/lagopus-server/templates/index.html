@@ -10,7 +10,18 @@
           <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Jobs</div>
           <div class="row no-gutters align-items-center">
             <div class="col-auto">
-              <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800">{{ jobcount }}</div>
+              <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800" id="jobcount"></div>
+                <script>
+                  $(document).ready(function() {
+                    $.ajax({
+                        type: "get",
+                        url: "api/jobs",
+                        success:function(data) {
+                            $("#jobcount").text(data['data'].length);
+                        }
+                    });
+		  });
+                </script>
             </div>
           </div>
         </div>
@@ -18,5 +29,62 @@
     </div>
   </div>
 </div>
+
+<!-- Jobs overview table -->
+<div class="card shadow mb-4">
+  <div class="card-header py-3">
+    <h6 class="m-0 font-weight-bold text-primary">Recent
+    Jobs</h6>
+  </div>
+  <div class="card-body table-responsive">
+    <table class="table table-bordered" id="dataTable" width=
+    "100%" cellspacing="0">
+      <thead>
+        <tr>
+          <th>Job ID</th>
+          <th>Status</th>
+          <th>Cores</th>
+          <th>Memory</th>
+          <th>Deadline</th>
+          <th>Driver</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tfoot>
+        <tr>
+          <th>Job ID</th>
+          <th>Status</th>
+          <th>Cores</th>
+          <th>Memory</th>
+          <th>Deadline</th>
+          <th>Driver</th>
+          <th>Created</th>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <!-- code to update jobs table via api -->
+  <script src="vendor/datatables/jquery.dataTables.min.js"></script>
+  <script src="vendor/datatables/dataTables.bootstrap4.min.js"></script>
+  <script>
+  $(document).ready(function() {
+    $('#dataTable').DataTable( {
+        "ajax": "api/jobs",
+        "order": [[ 6, 'desc' ]],
+        "columns": [
+          { data: 'job_id' },
+          { data: 'status' },
+          { data: 'cores' },
+          { data: 'memory' },
+          { data: 'deadline' },
+          { data: 'driver' },
+          { data: 'create_time' }
+        ]
+    } );
+  } );
+  </script>
+</div>
+
 
 {% endblock %}

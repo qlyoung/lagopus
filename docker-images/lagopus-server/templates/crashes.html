@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+
 <!-- Page Heading -->
 <h1 class="h3 mb-2 text-gray-800">Overview</h1>
 
@@ -35,15 +36,9 @@
     </div>
   </div>
 </div>
-{% endblock %} <!-- content -->
-
-{% block scripts %}
-<script src="vendor/datatables/jquery.dataTables.min.js">
-</script>
-<script src="vendor/datatables/dataTables.bootstrap4.min.js">
-</script>
-
 <!-- snippet to update crash table on page load -->
+<script src="vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="vendor/datatables/dataTables.bootstrap4.min.js"></script>
 <script>
 $(document).ready(function() {
   $('#dataTable').DataTable( {
@@ -59,4 +54,4 @@ $(document).ready(function() {
   } );
 } );
 </script>
-{% endblock %} <!-- scripts -->
+{% endblock %} <!-- content -->
