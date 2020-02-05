@@ -84,9 +84,10 @@ for i in $(find . -maxdepth 2 -iname fuzzer_stats | sort); do
   ALIVE_CNT=$((ALIVE_CNT + 1))
 
   #PATH_PERC=$((cur_path * 100 / paths_total))
+  printf -v eps %.0f "$execs_per_sec"
 
   TOTAL_TIME=$((TOTAL_TIME + RUN_UNIX))
-  TOTAL_EPS=$((TOTAL_EPS + execs_per_sec))
+  TOTAL_EPS=$((TOTAL_EPS + eps))
   TOTAL_EXECS=$((TOTAL_EXECS + execs_done))
   TOTAL_CRASHES=$((TOTAL_CRASHES + unique_crashes))
   TOTAL_PENDING=$((TOTAL_PENDING + pending_total))
@@ -97,7 +98,7 @@ rm -f "$TMP"
 
 TOTAL_DAYS=$((TOTAL_TIME / 60 / 60 / 24))
 TOTAL_HRS=$(((TOTAL_TIME / 60 / 60) % 24))
-TOTAL_EPS=$((TOTAL_EPS / ALIVE_CNT))
+TOTAL_EPS=$(($TOTAL_EPS / $ALIVE_CNT))
 
 test "$TOTAL_TIME" = "0" && TOTAL_TIME=1
 
