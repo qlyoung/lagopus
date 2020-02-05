@@ -9,6 +9,7 @@ SUBDIR_LAGOPUS_JOBS = "jobs"
 DIR_LAGOPUS_JOBS = DIR_LAGOPUS + "/" + SUBDIR_LAGOPUS_JOBS  # state directory for jobs
 lagoconfig = {"defaults": {"cores": 2, "memory": 200, "deadline": 240,}}
 # ----------------------------------------
+import os
 
 from flask import Flask
 from flask import render_template
@@ -16,16 +17,18 @@ from flask import send_from_directory
 from flask import request
 from flask import flash
 from flask import redirect, url_for
+from flask import jsonify
 from werkzeug.utils import secure_filename
-import os
+
+from influxdb import InfluxDBClient
+from influxdb.exceptions import InfluxDBClientError
+
 
 app = Flask(__name__)
 
 # ---
 # k8s
 # ---
-
-import os
 import stat
 import pathlib
 import shutil
@@ -230,16 +233,35 @@ def lagopus_create_job(name, driver, target, cores=2, memory=200, deadline=240):
     lagopus_k8s_create_job(jobid, driver, target, cores, memory, deadline)
 
 
-def lagopus_get_job():
+def lagopus_get_job(jobid=None):
     # update db from k8s
     # ...job status, etc
 
     # fetch from db
     cursor = cnx.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM jobs")
+    if jobid:
+        cursor.execute(
+            "SELECT * FROM jobs WHERE job_id = %(job_id)s", {"job_id": jobid}
+        )
+    else:
+        cursor.execute("SELECT * FROM jobs")
     result = cursor.fetchall()
     app.logger.error("Result: {}".format(result))
     return result
+
+
+def lagopus_get_job_eps(jobid):
+    ic = InfluxDBClient(database=jobid)
+    query = "select time, execs_per_sec from jobs;"
+    try:
+        data = ic.query(query)
+        app.logger.warning("InfluxDB result: {}".format(data))
+        results = list(data)[0]
+    except InfluxDBClientError as e:
+        app.logger.error("InfluxDB error: {}".format(e))
+        return []
+
+    return results
 
 
 def lagopus_get_crash():
@@ -261,6 +283,18 @@ def lagopus_get_crash():
 @app.route("/api/createjob")
 def lagopus_api_create_job():
     pass
+
+
+@app.route("/api/jobs/eps")
+def lagopus_api_get_jobs_eps():
+    try:
+        jobid = request.args.get("job")
+        results = lagopus_get_job_eps(jobid)
+        app.logger.error("backend result: {}".format(results))
+        return jsonify(results)
+    except:
+        app.logger.warning("Couldn't get EPS for job")
+        return {}
 
 
 @app.route("/api/jobs")
@@ -331,12 +365,18 @@ def upload():
 @app.route("/jobs.html")
 def jobs():
     pagename = "Jobs"
+    try:
+        jobid = request.args.get("job")
+    except:
+        app.logger.info("No job specified")
+
     return render_template(
         "jobs.html",
         pagename=pagename,
         defaultdeadline=lagoconfig["defaults"]["deadline"],
         defaultmemory=lagoconfig["defaults"]["memory"],
         defaultcores=lagoconfig["defaults"]["cores"],
+        jobid=jobid,
     )
 
 
