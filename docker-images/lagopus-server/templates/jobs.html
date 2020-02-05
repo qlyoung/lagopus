@@ -16,28 +16,28 @@
         <div class="modal-body">
 
           <!-- Target .zip upload -->
-	  <div class="form-group">
-	    <div class="input-group">
+          <div class="form-group">
+            <div class="input-group">
               <div class="custom-file">
                 <input type="file" required="required" name="file" class="custom-file-input" id="inputGroupFile01">
                 <label class="custom-file-label" for=
                 "inputGroupFile01">Choose target .zip</label>
               </div>
             </div>
-	  </div>
+          </div>
 
           <!-- Job name -->
-	  <div class="form-group">
-	    <div class="input-group">
+          <div class="form-group">
+            <div class="input-group">
               <div class="input-group-prepend">
                 <span class="input-group-text">Job name</span>
               </div>
               <input type="text" required="required" class="form-control" name="jobname" aria-label="Job name">
             </div>
-	  </div>
+          </div>
 
           <!-- Fuzzer -->
-	  <div class="form-group">
+          <div class="form-group">
             <div class="input-group">
               <div class="input-group-prepend">
                 <span class="input-group-text">Fuzzer</span>
@@ -47,43 +47,43 @@
                 <option>libFuzzer</option>
               </select>
             </div>
-	  </div>
+          </div>
 
-	  <!-- Cores -->
-	  <div class="form-group">
+          <!-- Cores -->
+          <div class="form-group">
             <div class="input-group">
               <div class="input-group-prepend">
                 <span class="input-group-text">Cores</span>
               </div>
               <input type="text" class="form-control" placeholder="{{ defaultcores }}" name="cores" aria-label="Cores">
             </div>
-	  </div>
+          </div>
 
-	  <!-- Memory -->
-	  <div class="form-group">
+          <!-- Memory -->
+          <div class="form-group">
             <div class="input-group">
               <div class="input-group-prepend">
                 <span class="input-group-text">Memory</span>
               </div>
-	      <input type="text" class="form-control" placeholder="{{ defaultmemory }}" name="memory" aria-label="Memory">
+              <input type="text" class="form-control" placeholder="{{ defaultmemory }}" name="memory" aria-label="Memory">
               <div class="input-group-append">
                 <span class="input-group-text">Mi</span>
               </div>
             </div>
-	  </div>
+          </div>
 
-	  <!-- Deadline -->
-	  <div class="form-group">
+          <!-- Deadline -->
+          <div class="form-group">
             <div class="input-group">
               <div class="input-group-prepend">
                 <span class="input-group-text">Deadline</span>
               </div>
-	      <input type="text" class="form-control" placeholder="{{ defaultdeadline }}" name="deadline" aria-label="Deadline">
+              <input type="text" class="form-control" placeholder="{{ defaultdeadline }}" name="deadline" aria-label="Deadline">
               <div class="input-group-append">
                 <span class="input-group-text">seconds</span>
               </div>
             </div>
-	  </div>
+          </div>
 
         </div>
         <div class="modal-footer">
@@ -135,6 +135,19 @@
     </table>
   </div>
 </div>
+
+<!-- Job stats -->
+<div class="card shadow mb-4">
+  <div class="card-header py-3">
+    <h6 class="m-0 font-weight-bold text-primary">Area Chart</h6>
+  </div>
+  <div class="card-body">
+    <div class="chart-area" id="execsPerSecChart" style="position: relative; height:20%; width:30%">
+      <canvas id="mychart"></canvas>
+    </div>
+  </div>
+</div>
+
 {% endblock %} <!-- content -->
 
 {% block scripts %}
@@ -159,6 +172,77 @@ $(document).ready(function() {
       ]
   } );
 } );
+</script>
+
+<!-- snippet to graph a job eps -->
+<script>
+window.chartColors = {
+        red: 'rgb(255, 99, 132)',
+        orange: 'rgb(255, 159, 64)',
+        yellow: 'rgb(255, 205, 86)',
+        green: 'rgb(75, 192, 192)',
+        blue: 'rgb(54, 162, 235)',
+        purple: 'rgb(153, 102, 255)',
+        grey: 'rgb(201, 203, 207)'
+};
+
+var color = Chart.helpers.color;
+
+var ctx = document.getElementById('mychart').getContext('2d');
+var myChart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    datasets: [{
+        label: 'Execs / sec',
+        pointRadius: 1,
+        backgroundColor: color(window.chartColors.blue).alpha(0.4).rgbString(),
+        fill: true,
+        data: []
+    }]
+  },
+  options: {
+    scales: {
+      yAxes: [{
+        ticks: {
+          suggestedMin: 0,
+          suggestedMax: 3000
+        }
+      }],
+      xAxes: [{
+          type: 'time',
+          time: {
+              displayFormats: {
+                  second: 'h:mm:ss'
+              }
+          },
+	  distribution: 'series',
+	  bounds: 'data'
+      }]
+    }
+  }
+});
+
+function updategraph(){
+    $.ajax({
+        type: "get",
+        url: "api/jobs/eps?job={{ jobid }}",
+        success:function(data)
+        {
+            console.log(data);
+            myChart.data.datasets[0].data = data.map(function(point) {
+                return {
+                    x: new moment(point['time']),
+                    y: point['execs_per_sec']
+                };
+            }).slice(-20);
+            myChart.update();
+            setTimeout(function(){
+                updategraph();
+            }, 5000);
+        }
+    });
+}
+updategraph();
 </script>
 
 <!-- snippet to display file name in job upload dialog -->
