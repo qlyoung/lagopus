@@ -125,7 +125,7 @@ def lagopus_k8s_create_job(
     return response
 
 
-def lagopus_k8s_get_jobs(namespace="default"):
+def lagopus_k8s_get_jobs(jobid=None, namespace="default"):
     jobs = []
     for job in apis["batchv1"].list_namespaced_job(namespace).items:
         onejob = {}
@@ -218,13 +218,14 @@ def lagopus_create_job(name, driver, target, cores=2, memory=200, deadline=240):
     now = datetime.datetime.now()
     jobid = lagopus_jobid(name, driver, now)
 
+    status = "Created"
     create_timestamp = now.strftime("%Y-%m-%d %H-%M-%S")
 
     # insert new job into db
     cursor = cnx.cursor()
     cursor.execute(
-        "INSERT INTO jobs (job_id, driver, target, cores, memory, deadline, create_time) VALUES ('{}', '{}', '{}', {}, {}, {}, '{}')".format(
-            jobid, driver, target, cores, memory, deadline, create_timestamp
+        "INSERT INTO jobs (job_id, status, driver, target, cores, memory, deadline, create_time) VALUES ('{}', '{}', '{}', '{}', {}, {}, {}, '{}')".format(
+            jobid, status, driver, target, cores, memory, deadline, create_timestamp
         )
     )
     cursor.close()
@@ -232,10 +233,21 @@ def lagopus_create_job(name, driver, target, cores=2, memory=200, deadline=240):
     # create in k8s
     lagopus_k8s_create_job(jobid, driver, target, cores, memory, deadline)
 
+    return jobid
+
 
 def lagopus_get_job(jobid=None):
+    cursor = cnx.cursor(dictionary=True)
+
     # update db from k8s
     # ...job status, etc
+    k8s_jobs = lagopus_k8s_get_jobs(jobid)
+    for job in k8s_jobs:
+        app.logger.warning(job)
+        cursor.execute(
+            "UPDATE jobs SET status = %(status)s WHERE job_id = %(job_id)s",
+            {"status": job["status"], "job_id": job["name"]},
+        )
 
     # fetch from db
     cursor = cnx.cursor(dictionary=True)
@@ -247,6 +259,7 @@ def lagopus_get_job(jobid=None):
         cursor.execute("SELECT * FROM jobs")
     result = cursor.fetchall()
     app.logger.error("Result: {}".format(result))
+
     return result
 
 

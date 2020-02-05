@@ -115,6 +115,7 @@
       <thead>
         <tr>
           <th>Job ID</th>
+          <th>Status</th>
           <th>Cores</th>
           <th>Memory</th>
           <th>Deadline</th>
@@ -125,6 +126,7 @@
       <tfoot>
         <tr>
           <th>Job ID</th>
+          <th>Status</th>
           <th>Cores</th>
           <th>Memory</th>
           <th>Deadline</th>
@@ -164,6 +166,7 @@ $(document).ready(function() {
       "order": [[ 5, 'desc' ]],
       "columns": [
         { data: 'job_id' },
+        { data: 'status' },
         { data: 'cores' },
         { data: 'memory' },
         { data: 'deadline' },
