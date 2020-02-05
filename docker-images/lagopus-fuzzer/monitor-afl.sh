@@ -64,6 +64,7 @@ TOTAL_EPS=0
 TOTAL_CRASHES=0
 TOTAL_PFAV=0
 TOTAL_PENDING=0
+AVG_EPS=0
 
 for i in $(find . -maxdepth 2 -iname fuzzer_stats | sort); do
   sed 's/[ ]*:[ ]*/="/;s/$/"/' "$i" >"$TMP"
@@ -98,7 +99,7 @@ rm -f "$TMP"
 
 TOTAL_DAYS=$((TOTAL_TIME / 60 / 60 / 24))
 TOTAL_HRS=$(((TOTAL_TIME / 60 / 60) % 24))
-TOTAL_EPS=$(($TOTAL_EPS / $ALIVE_CNT))
+AVG_EPS=$(($TOTAL_EPS / $ALIVE_CNT))
 
 test "$TOTAL_TIME" = "0" && TOTAL_TIME=1
 
