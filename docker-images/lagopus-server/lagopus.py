@@ -307,6 +307,7 @@ def lagopus_api_create_job():
 
 @app.route("/api/jobs/eps")
 def lagopus_api_get_jobs_eps():
+    jobid = None
     try:
         jobid = request.args.get("job")
         results = lagopus_get_job_eps(jobid)
@@ -314,12 +315,17 @@ def lagopus_api_get_jobs_eps():
         return jsonify(results)
     except:
         app.logger.warning("Couldn't get EPS for job")
-        return {}
+        return jsonify([])
 
 
 @app.route("/api/jobs")
 def lagopus_api_get_jobs():
-    jobs = lagopus_get_job()
+    jobid = None
+    try:
+        jobid = request.args.get("job")
+    except:
+        app.logger.info("No job specified")
+    jobs = lagopus_get_job(jobid)
     jobs = jobs if jobs else []
     return {"data": jobs}
 
@@ -385,19 +391,15 @@ def upload():
 @app.route("/jobs.html")
 def jobs():
     pagename = "Jobs"
-    try:
-        jobid = request.args.get("job")
-    except:
-        app.logger.info("No job specified")
-
     return render_template(
         "jobs.html",
         pagename=pagename,
         defaultdeadline=CONFIG["jobs"]["deadline"],
         defaultmemory=CONFIG["jobs"]["memory"],
         defaultcores=CONFIG["jobs"]["cores"],
-        jobid=jobid,
+        jobid=None,
     )
+
 
 
 @app.route("/crashes.html")
