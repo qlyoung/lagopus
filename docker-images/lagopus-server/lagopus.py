@@ -270,9 +270,9 @@ def lagopus_get_job(jobid=None):
     return result
 
 
-def lagopus_get_job_eps(jobid):
+def lagopus_get_job_stats(jobid):
     ic = InfluxDBClient(database=jobid)
-    query = "select time, execs_per_sec from jobs;"
+    query = "select * from jobs;"
     try:
         data = ic.query(query)
         app.logger.warning("InfluxDB result: {}".format(data))
@@ -305,16 +305,16 @@ def lagopus_api_create_job():
     pass
 
 
-@app.route("/api/jobs/eps")
-def lagopus_api_get_jobs_eps():
+@app.route("/api/jobs/stats")
+def lagopus_api_get_jobs_stats():
     jobid = None
     try:
         jobid = request.args.get("job")
-        results = lagopus_get_job_eps(jobid)
+        results = lagopus_get_job_stats(jobid)
         app.logger.error("backend result: {}".format(results))
         return jsonify(results)
     except:
-        app.logger.warning("Couldn't get EPS for job")
+        app.logger.warning("Couldn't get stats for job {}".format(jobid))
         return jsonify([])
 
 
@@ -391,15 +391,19 @@ def upload():
 @app.route("/jobs.html")
 def jobs():
     pagename = "Jobs"
+    jobid = None
+    try:
+        jobid = request.args.get("job")
+    except:
+        app.logger.info("No job specified")
     return render_template(
         "jobs.html",
         pagename=pagename,
         defaultdeadline=CONFIG["jobs"]["deadline"],
         defaultmemory=CONFIG["jobs"]["memory"],
         defaultcores=CONFIG["jobs"]["cores"],
-        jobid=None,
+        jobid=jobid,
     )
-
 
 
 @app.route("/crashes.html")
