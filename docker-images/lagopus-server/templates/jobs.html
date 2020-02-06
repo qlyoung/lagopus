@@ -104,147 +104,89 @@ $(document).on('change', '.custom-file-input', function (event) {
 
 <!-- Page heading + new job button -->
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
-  <h1 class="h3 mb-0 text-gray-800">Overview</h1><button class=
+	<h1 class="h3 mb-0 text-gray-800">{{ jobid or 'Overview' }}</h1><button class=
   "d-none d-sm-inline-block btn btn-lg btn-primary shadow-lg"
   data-toggle="modal" data-target="#jobUploadModal">NEW JOB</button>
 </div>
 
-<!-- Main page content -->
-<div class="card shadow mb-4">
-  <div class="card-header py-3">
-    <h6 class="m-0 font-weight-bold text-primary">Recent
-    Jobs</h6>
-  </div>
-  <div class="card-body table-responsive">
-    <table class="table table-bordered" id="dataTable" width=
-    "100%" cellspacing="0">
-      <thead>
-        <tr>
-          <th>Job ID</th>
-          <th>Status</th>
-          <th>Cores</th>
-          <th>Memory</th>
-          <th>Deadline</th>
-          <th>Driver</th>
-          <th>Created</th>
-        </tr>
-      </thead>
-      <tfoot>
-        <tr>
-          <th>Job ID</th>
-          <th>Status</th>
-          <th>Cores</th>
-          <th>Memory</th>
-          <th>Deadline</th>
-          <th>Driver</th>
-          <th>Created</th>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-
-  <!-- code to update jobs table via api -->
-  <script src="vendor/datatables/jquery.dataTables.min.js"></script>
-  <script src="vendor/datatables/dataTables.bootstrap4.min.js"></script>
-  <script>
-  $(document).ready(function() {
-    $('#dataTable').DataTable( {
-        "ajax": "api/jobs",
-        "order": [[ 6, 'desc' ]],
-        "columns": [
-          { data: 'job_id' },
-          { data: 'status' },
-          { data: 'cores' },
-          { data: 'memory' },
-          { data: 'deadline' },
-          { data: 'driver' },
-          { data: 'create_time' }
-        ]
-    } );
-  } );
-  </script>
-</div>
-
-<!-- Job stats -->
-<div class="card shadow mb-4">
-  <div class="card-header py-3">
-    <h6 class="m-0 font-weight-bold text-primary">Area Chart</h6>
-  </div>
-  <div class="card-body">
-    <div class="chart-area" id="execsPerSecChart" style="position: relative; height:20%; width:30%">
-      <canvas id="mychart"></canvas>
+{% if jobid == None %}
+  <!-- Job table -->
+  {% include "jobtable.html" %}
+{% else %}
+  <!-- Job stats -->
+  <div class="row">
+    <div class="card shadow m-2 w-100">
+      <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Pending Favored Paths</h6>
+      </div>
+      <div class="card-body">
+        <div class="chart-area" style="position: relative">
+          <canvas id="pendingFavChart"></canvas>
+        </div>
+      </div>
     </div>
   </div>
-</div>
-<!-- snippet to graph a job eps -->
-<script>
-window.chartColors = {
-        red: 'rgb(255, 99, 132)',
-        orange: 'rgb(255, 159, 64)',
-        yellow: 'rgb(255, 205, 86)',
-        green: 'rgb(75, 192, 192)',
-        blue: 'rgb(54, 162, 235)',
-        purple: 'rgb(153, 102, 255)',
-        grey: 'rgb(201, 203, 207)'
-};
-
-var color = Chart.helpers.color;
-
-var ctx = document.getElementById('mychart').getContext('2d');
-var myChart = new Chart(ctx, {
-  type: 'line',
-  data: {
-    datasets: [{
-        label: 'Execs / sec',
-        pointRadius: 1,
-        backgroundColor: color(window.chartColors.blue).alpha(0.4).rgbString(),
-        fill: true,
-        data: []
-    }]
-  },
-  options: {
-    scales: {
-      yAxes: [{
-        ticks: {
-          suggestedMin: 0,
-          suggestedMax: 3000
-        }
-      }],
-      xAxes: [{
-          type: 'time',
-          time: {
-              displayFormats: {
-                  second: 'h:mm:ss'
-              }
-          },
-	  distribution: 'series',
-	  bounds: 'data'
-      }]
-    }
-  }
-});
-
-function updategraph(){
-    $.ajax({
-        type: "get",
-        url: "api/jobs/eps?job={{ jobid }}",
-        success:function(data)
-        {
-            console.log(data);
-            myChart.data.datasets[0].data = data.map(function(point) {
-                return {
-                    x: new moment(point['time']),
-                    y: point['execs_per_sec']
-                };
-            }).slice(-20);
-            myChart.update();
-            setTimeout(function(){
-                updategraph();
-            }, 5000);
-        }
-    });
-}
-updategraph();
-</script>
+  <div class="row">
+    <div class="w-50 p-2">
+      <div class="card shadow">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-primary">Execs / sec</h6>
+        </div>
+        <div class="card-body">
+          <div class="chart-area" style="position: relative">
+            <canvas id="epsChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="w-50 p-2">
+      <div class="card shadow">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-primary">Crashes</h6>
+        </div>
+        <div class="card-body">
+          <div class="chart-area" style="position: relative">
+            <canvas id="crashesChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="w-50 p-2">
+      <div class="card shadow">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-primary">Pending Paths</h6>
+        </div>
+        <div class="card-body">
+          <div class="chart-area" style="position: relative">
+            <canvas id="pendingChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="w-50 p-2">
+      <div class="card shadow">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-primary">CPU Hours</h6>
+        </div>
+        <div class="card-body">
+          <div class="chart-area" style="position: relative">
+            <canvas id="cpuHoursChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- graph job stats -->
+  <script src="js/lagopus.js"></script>
+  <script>
+  lagopus_job_stat_chart($("#epsChart"), '{{ jobid }}', 'execs_per_sec', 'Execs / Sec');
+  lagopus_job_stat_chart($("#crashesChart"), '{{ jobid }}', 'crashes', 'Crashes');
+  lagopus_job_stat_chart($("#pendingChart"), '{{ jobid }}', 'pending', 'Pending paths');
+  lagopus_job_stat_chart($("#pendingFavChart"), '{{ jobid }}', 'pending_fav', 'Pending favored paths');
+  lagopus_job_stat_chart($("#cpuHoursChart"), '{{ jobid }}', 'cpu_hours', 'CPU Hours');
+  </script>
+{% endif %}
 
 {% endblock %} <!-- content -->
