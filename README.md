@@ -386,3 +386,6 @@ debugging.
   [halfempty](https://github.com/googleprojectzero/halfempty) for minimization
   instead of the current tools, as it's much faster. This can probably be done
   fairly easily.
+
+- Jobs could be distributed across nodes by using the NFS share as a source for
+  new corpus inputs and periodically synchronizing?
