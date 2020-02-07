@@ -33,12 +33,6 @@ job.zip
   [afl-multicore](https://gitlab.com/rc0r/afl-utils); this is only necessary
   when the job type is `afl`, libfuzzer jobs do not use this
 
-Philosophy
-----------
-- KISS
-- F*** the cloud
-
-
 FAQ
 ---
 - Q: Why not ClusterFuzz?
@@ -63,7 +57,7 @@ FAQ
 
 - Q: Why [lagopus](https://en.wikipedia.org/wiki/Arctic_fox)?
 
-  A: Cuz they're fucking awesome
+  A: Cuz they're awesome
 
 - Q: My target is dynamically linked and the fuzzer image doesn't have its
      shared libraries; what do?
