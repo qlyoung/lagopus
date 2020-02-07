@@ -44,7 +44,12 @@ $(document).ready(function() {
   $('#dataTable').DataTable( {
       "ajax": "api/crashes",
       "columns": [
-        { data: 'job_id' },
+        {
+          data: 'job_id',
+          render: function(data, type, row, meta) {
+              return '<a href="jobs.html?job=' + data + '">'+data+'</a>';
+          }
+        },
         { data: 'description' },
         { data: 'exploitability' },
         { data: 'sample_path' },

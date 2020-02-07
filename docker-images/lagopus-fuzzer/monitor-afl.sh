@@ -62,8 +62,11 @@ TOTAL_TIME=0
 TOTAL_EXECS=0
 TOTAL_EPS=0
 TOTAL_CRASHES=0
+TOTAL_HANGS=0
 TOTAL_PFAV=0
 TOTAL_PENDING=0
+TOTAL_PATHS=0
+CURRENT_PATH=0
 AVG_EPS=0
 
 for i in $(find . -maxdepth 2 -iname fuzzer_stats | sort); do
@@ -88,11 +91,14 @@ for i in $(find . -maxdepth 2 -iname fuzzer_stats | sort); do
   printf -v eps %.0f "$execs_per_sec"
 
   TOTAL_TIME=$((TOTAL_TIME + RUN_UNIX))
-  TOTAL_EPS=$((TOTAL_EPS + eps))
   TOTAL_EXECS=$((TOTAL_EXECS + execs_done))
+  TOTAL_EPS=$((TOTAL_EPS + eps))
   TOTAL_CRASHES=$((TOTAL_CRASHES + unique_crashes))
-  TOTAL_PENDING=$((TOTAL_PENDING + pending_total))
+  TOTAL_HANGS=$((TOTAL_HANGS + unique_hangs))
   TOTAL_PFAV=$((TOTAL_PFAV + pending_favs))
+  TOTAL_PENDING=$((TOTAL_PENDING + pending_total))
+  TOTAL_PATHS=$((TOTAL_PATHS + paths_total))
+  CURRENT_PATH=$((CURRENT_PATH + cur_path))
 done
 
 rm -f "$TMP"
@@ -110,10 +116,13 @@ STAT="target=\"$(basename "$(echo "$command_line" | sed -n 's/^.*-- //p')")\""
 STAT="$STAT,host=\"$(hostname)\""
 STAT="$STAT,alive=$ALIVE_CNT"
 STAT="$STAT,crashes=$TOTAL_CRASHES"
+STAT="$STAT,hangs=$TOTAL_HANGS"
 STAT="$STAT,execs_per_sec=$TOTAL_EPS"
 STAT="$STAT,execs=$TOTAL_EXECS"
 STAT="$STAT,pending=$TOTAL_PENDING"
 STAT="$STAT,pending_fav=$TOTAL_PFAV"
+STAT="$STAT,total_paths=$TOTAL_PATHS"
+STAT="$STAT,current_path=$CURRENT_PATH"
 STAT="$STAT,cpu_hours=$TOTAL_HRS"
 
 echo "Creating DB"

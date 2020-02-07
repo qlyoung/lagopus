@@ -115,26 +115,14 @@ $(document).on('change', '.custom-file-input', function (event) {
 {% else %}
   <!-- Job stats -->
   <div class="row">
-    <div class="card shadow m-2 w-100">
-      <div class="card-header py-3">
-        <h6 class="m-0 font-weight-bold text-primary">Pending Favored Paths</h6>
-      </div>
-      <div class="card-body">
-        <div class="chart-area" style="position: relative">
-          <canvas id="pendingFavChart"></canvas>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="row">
     <div class="w-50 p-2">
       <div class="card shadow">
         <div class="card-header py-3">
-          <h6 class="m-0 font-weight-bold text-primary">Execs / sec</h6>
+          <h6 class="m-0 font-weight-bold text-primary">Fuzzing Stats</h6>
         </div>
         <div class="card-body">
           <div class="chart-area" style="position: relative">
-            <canvas id="epsChart"></canvas>
+            <canvas id="statChart"></canvas>
           </div>
         </div>
       </div>
@@ -142,37 +130,11 @@ $(document).on('change', '.custom-file-input', function (event) {
     <div class="w-50 p-2">
       <div class="card shadow">
         <div class="card-header py-3">
-          <h6 class="m-0 font-weight-bold text-primary">Crashes</h6>
+          <h6 class="m-0 font-weight-bold text-primary">Performance Stats</h6>
         </div>
         <div class="card-body">
           <div class="chart-area" style="position: relative">
-            <canvas id="crashesChart"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="row">
-    <div class="w-50 p-2">
-      <div class="card shadow">
-        <div class="card-header py-3">
-          <h6 class="m-0 font-weight-bold text-primary">Pending Paths</h6>
-        </div>
-        <div class="card-body">
-          <div class="chart-area" style="position: relative">
-            <canvas id="pendingChart"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="w-50 p-2">
-      <div class="card shadow">
-        <div class="card-header py-3">
-          <h6 class="m-0 font-weight-bold text-primary">CPU Hours</h6>
-        </div>
-        <div class="card-body">
-          <div class="chart-area" style="position: relative">
-            <canvas id="cpuHoursChart"></canvas>
+            <canvas id="perfChart"></canvas>
           </div>
         </div>
       </div>
@@ -181,11 +143,8 @@ $(document).on('change', '.custom-file-input', function (event) {
   <!-- graph job stats -->
   <script src="js/lagopus.js"></script>
   <script>
-  lagopus_job_stat_chart($("#epsChart"), '{{ jobid }}', 'execs_per_sec', 'Execs / Sec');
-  lagopus_job_stat_chart($("#crashesChart"), '{{ jobid }}', 'crashes', 'Crashes');
-  lagopus_job_stat_chart($("#pendingChart"), '{{ jobid }}', 'pending', 'Pending paths');
-  lagopus_job_stat_chart($("#pendingFavChart"), '{{ jobid }}', 'pending_fav', 'Pending favored paths');
-  lagopus_job_stat_chart($("#cpuHoursChart"), '{{ jobid }}', 'cpu_hours', 'CPU Hours');
+  lagopus_job_aflstat($("#statChart"), '{{ jobid }}');
+  lagopus_job_aflperf($("#perfChart"), '{{ jobid }}');
   </script>
 {% endif %}
 
