@@ -142,6 +142,11 @@ the steps described if your nodes are running microk8s on Ubuntu 18.04. Change
     command: sudo usermod -a -G microk8s {{ fuzzing_user }}
   - name: microk8s-enable-dns
     command: microk8s.enable dns
+  - name: disable-apport
+    shell: |
+      systemctl disable apport
+      systemctl stop apport
+    ignore_errors: yes
   - name: set-kernel-core-pattern
     shell: echo 'kernel.core_pattern=core' >> /etc/sysctl.conf && sysctl -p
   - name: set-kubelet-resources
@@ -163,9 +168,17 @@ the steps described if your nodes are running microk8s on Ubuntu 18.04. Change
    echo "kernel.core_pattern=core" >> /etc/sysctl.conf
    sysctl -p
    ```
+   If on Ubuntu, this setting will be overwritten by Apport each boot. You
+   should disable Apport:
+   ```
+   systemctl stop apport
+   systemctl disable apport
+   ```
+   Disable swap:
    ```
    swapoff -a
    ```
+   Set CPU governor to performance:
    ```
    cd /sys/devices/system/cpu; echo performance | tee cpu*/cpufreq/scaling_governor
    ```
