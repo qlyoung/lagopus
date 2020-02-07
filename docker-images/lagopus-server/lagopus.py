@@ -249,6 +249,9 @@ def lagopus_get_job(jobid=None):
     # update db from k8s
     # ...job status, etc
     k8s_jobs = lagopus_k8s_get_jobs(jobid)
+    # Set all incomplete job statuses to "Unknown"
+    cursor.execute("UPDATE jobs SET status = %(status)s WHERE status <> 'Complete'", {"status": "Unknown"})
+    # Update with statuses from k8s
     for job in k8s_jobs:
         app.logger.warning(job)
         cursor.execute(
