@@ -38,7 +38,7 @@
   $(document).ready(function() {
     $('#dataTable').DataTable( {
         "ajax": "api/jobs",
-        "order": [[ 6, 'desc' ]],
+        "order": [[ 6, 'asc' ]],
         "columns": [
           {
             data: 'job_id',
@@ -51,7 +51,12 @@
           { data: 'memory' },
           { data: 'deadline' },
           { data: 'driver' },
-          { data: 'create_time' },
+          {
+            data: 'create_time',
+            render: function(data, type, row, meta) {
+                return moment(data);
+	    }
+          },
         ]
     } );
   } );
