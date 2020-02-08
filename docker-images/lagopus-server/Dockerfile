@@ -14,5 +14,7 @@ COPY ./k8s ./k8s
 COPY ./lagopus.py ./
 COPY ./templates/. ./templates/
 
+# meinheld dun werk
+RUN sed -i -e 's/-k egg:meinheld#gunicorn_worker//' /start.sh
+
 ENV MODULE_NAME="lagopus"
-ENV PYTHONUNBUFFERED=TRUE
