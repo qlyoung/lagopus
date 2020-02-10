@@ -115,6 +115,37 @@ $(document).on('change', '.custom-file-input', function (event) {
 {% else %}
   <!-- Job stats -->
   <div class="row">
+    <div class="w-100 p-2">
+      <div class="card shadow">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-primary">Summary</h6>
+        </div>
+        <div class="card-body">
+          <div class="container">
+            <div class="row">
+              <div class="col"><strong>Crashes:</strong> <p id="summary_crashes">-</p></div>
+              <div class="col"><strong>Paths:</strong> <p id="summary_paths">-</p></div>
+            </div>
+          </div>
+          <script>
+            function update_summary() {
+                $.ajax({
+                    type: "get",
+                    url: "api/jobs/stats?job={{ jobid }}",
+                    success: function(data) {
+                        $("#summary_crashes").text(data[data.length - 1]['crashes']);
+                        $("#summary_paths").text(data[data.length - 1]['total_paths']);
+                    }
+                });
+                setTimeout(update_summary, 15000);
+            }
+            update_summary();
+          </script>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row">
     <div class="w-50 p-2">
       <div class="card shadow">
         <div class="card-header py-3">
