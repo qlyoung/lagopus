@@ -307,6 +307,15 @@ def lagopus_get_crash():
 # ---
 
 
+@app.after_request
+def apply_caching(response):
+    """
+    Sometimes firefox doesn't allow inline scripts? What's up with that?
+    """
+    response.headers["Content-Security-Policy"] = "script-src 'unsafe-inline' 'self'"
+    return response
+
+
 # --------
 # JSON API
 # --------
