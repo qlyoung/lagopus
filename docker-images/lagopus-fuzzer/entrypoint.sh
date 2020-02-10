@@ -13,6 +13,7 @@
 # - INFLUXDB: if specified, fuzzing stats are posted to the specified InfluxDB
 #   instance. The format must be "<host>:<port>:<database>.
 # - INFLUXDB_DB: the database to insert into; must be set if INFLUXDB is set
+# - INFLUXDB_MEASUREMENT: the measurement to store stats into; must  be set if INFLUXDB is set
 
 # Setup -------------------
 
@@ -116,7 +117,7 @@ while [ "$FUZZERS_ALIVE" -ne "0" ] && [ ! -f /shouldexit ] && [ ! $ELAPSED_TIME 
 	printf "%d fuzzers alive, cpu: %s, mem: %s\n" "$FUZZERS_ALIVE" "$CPU_USAGE" "$MEM_USAGE"
 
 	if [[ ! -z "$INFLUXDB" && "$DRIVER" == "afl" ]]; then
-	  bash /monitor-afl.sh -i "$INFLUXDB_HOST" -p $INFLUXDB_PORT -d "$INFLUXDB_DB" $RESULT
+	  bash /monitor-afl.sh -i "$INFLUXDB_HOST" -p $INFLUXDB_PORT -d "$INFLUXDB_DB" -m "$INFLUXDB_MEASUREMENT" $RESULT
 	fi
 	sleep 1
 done

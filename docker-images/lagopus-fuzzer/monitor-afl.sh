@@ -21,8 +21,9 @@ unset SUMMARY_ONLY
 INFLUX_HOST=""
 INFLUX_PORT=8086
 INFLUX_DATABASE=""
+INFLUX_MEASUREMENT=""
 
-while getopts "i:p:d:" opt; do
+while getopts "i:p:d:m:" opt; do
   case "$opt" in
     i)
       INFLUX_HOST=$OPTARG
@@ -32,6 +33,9 @@ while getopts "i:p:d:" opt; do
       ;;
     d)
       INFLUX_DATABASE=$OPTARG
+      ;;
+    m)
+      INFLUX_MEASUREMENT=$OPTARG
       ;;
   esac
 done
@@ -112,24 +116,27 @@ test "$TOTAL_TIME" = "0" && TOTAL_TIME=1
 echo "Pushing to database $INFLUX_DATABASE"
 
 # Push to InfluxDB
-STAT="target=\"$(basename "$(echo "$command_line" | sed -n 's/^.*-- //p')")\""
-STAT="$STAT,host=\"$(hostname)\""
-STAT="$STAT,alive=$ALIVE_CNT"
-STAT="$STAT,crashes=$TOTAL_CRASHES"
-STAT="$STAT,hangs=$TOTAL_HANGS"
-STAT="$STAT,execs_per_sec=$TOTAL_EPS"
-STAT="$STAT,execs=$TOTAL_EXECS"
-STAT="$STAT,pending=$TOTAL_PENDING"
-STAT="$STAT,pending_fav=$TOTAL_PFAV"
-STAT="$STAT,total_paths=$TOTAL_PATHS"
-STAT="$STAT,current_path=$CURRENT_PATH"
-STAT="$STAT,cpu_hours=$TOTAL_HRS"
+TAGS="job_id=$JOB_ID"
+TAGS="$TAGS,target=\"$(basename "$(echo "$command_line" | sed -n 's/^.*-- //p')")\""
+TAGS="$TAGS,host=\"$(hostname)\""
+
+FIELDS="alive=$ALIVE_CNT"
+FIELDS="$FIELDS,crashes=$TOTAL_CRASHES"
+FIELDS="$FIELDS,hangs=$TOTAL_HANGS"
+FIELDS="$FIELDS,execs_per_sec=$TOTAL_EPS"
+FIELDS="$FIELDS,execs=$TOTAL_EXECS"
+FIELDS="$FIELDS,pending=$TOTAL_PENDING"
+FIELDS="$FIELDS,pending_fav=$TOTAL_PFAV"
+FIELDS="$FIELDS,total_paths=$TOTAL_PATHS"
+FIELDS="$FIELDS,current_path=$CURRENT_PATH"
+FIELDS="$FIELDS,cpu_hours=$TOTAL_HRS"
 
 echo "Creating DB"
 influx -host "$INFLUX_HOST" -port "$INFLUX_PORT" -execute "CREATE DATABASE \"$INFLUX_DATABASE\""
 
-echo "Writing $STAT"
-influx -host "$INFLUX_HOST" -port "$INFLUX_PORT" -database "$INFLUX_DATABASE" -execute "INSERT INTO autogen jobs $STAT"
+CMD="influx -host \"$INFLUX_HOST\" -port \"$INFLUX_PORT\" -database \"$INFLUX_DATABASE\" -execute \"INSERT INTO autogen $INFLUX_MEASUREMENT,$TAGS $FIELDS\""
+echo "Executing: $CMD"
+eval "$CMD"
 
 exit 0
 
