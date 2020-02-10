@@ -154,10 +154,7 @@ function lagopus_job_aflperf(ctx, jobid) {
 
     function updategraph() {
         lagopus_update_chart(chart, jobid);
-        setTimeout(function() {
-            updategraph();
-        },
-        5000);
+        setTimeout(updategraph, 5000);
     }
 
     updategraph();
