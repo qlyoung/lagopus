@@ -10,6 +10,34 @@ var lagopusChartColors = {
 };
 
 /*
+ * For each dataset, if we have no data, get it all; if we have data,
+ * get all data since the timestamp of the most recent data point
+ */
+function lagopus_update_chart(chart, jobid) {
+    chart.data.datasets.forEach((dataset) => {
+        let since = null;
+        if (dataset.data.length != 0) {
+            since = dataset.data[dataset.data.length - 1].x.toISOString();
+        }
+        $.ajax({
+            type: "get",
+            url: "api/jobs/stats?job=" + jobid + (since != null ? "&since=" + since : ''),
+            success: function(data) {
+                console.log(data);
+                newdata = data.map(function(point) {
+                    return {
+                        x: new moment(point['time']),
+                        y: point[dataset['influx_column']]
+                    };
+                });
+                dataset.data = dataset.data.concat(newdata.slice(1));
+                chart.update();
+            }
+        });
+    });
+}
+
+/*
  * Specify a Canvas element to turn it into a live chart of execs / sec
  */
 function lagopus_job_aflstat(ctx, jobid) {
@@ -75,31 +103,7 @@ function lagopus_job_aflstat(ctx, jobid) {
     });
 
     function updategraph() {
-        /*
-	 * For each dataset, if we have no data, get it all; if we have data,
-	 * get all data since the timestamp of the most recent data point
-	 */
-        chart.data.datasets.forEach((dataset) = >{
-            let since = null;
-            if (dataset.data.length != 0) {
-                since = dataset.data[dataset.data.length - 1].x.toISOString();
-            }
-            $.ajax({
-                type: "get",
-                url: "api/jobs/stats?job=" + jobid + (since != null ? "&since=" + since : ''),
-                success: function(data) {
-                    console.log(data);
-                    newdata = data.map(function(point) {
-                        return {
-                            x: new moment(point['time']),
-                            y: point[dataset['influx_column']]
-                        };
-                    });
-                    dataset.data = dataset.data.concat(newdata.slice(1));
-                    chart.update();
-                }
-            });
-        });
+        lagopus_update_chart(chart, jobid);
         setTimeout(function() {
             updategraph();
         },
@@ -149,26 +153,12 @@ function lagopus_job_aflperf(ctx, jobid) {
     });
 
     function updategraph() {
-        $.ajax({
-            type: "get",
-            url: "api/jobs/stats?job=" + jobid,
-            success: function(data) {
-                console.log(data);
-                chart.data.datasets.forEach((dataset) = >{
-                    dataset.data = data.map(function(point) {
-                        return {
-                            x: new moment(point['time']),
-                            y: point[dataset['influx_column']]
-                        };
-                    });
-                });
-                chart.update();
-                setTimeout(function() {
-                    updategraph();
-                },
-                5000);
-            }
-        });
+        lagopus_update_chart(chart, jobid);
+        setTimeout(function() {
+            updategraph();
+        },
+        5000);
     }
+
     updategraph();
 }
