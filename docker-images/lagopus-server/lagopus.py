@@ -273,13 +273,13 @@ def lagopus_get_job(jobid=None):
     return result
 
 
-def lagopus_get_job_stats(jobid, since):
-    ic = InfluxDBClient(database=jobid)
+def lagopus_get_job_stats(jobid, since=None, summary=False):
+    ic = InfluxDBClient(database="lagopus")
     app.logger.error(">>> Since: {}".format(since))
-    if since:
-        query = "select * from jobs where time > '{}';".format(since)
-    else:
-        query = "select * from jobs;"
+
+    query = "select * from jobs"
+    query += " where job_id = '{}'".format(jobid) if jobid else ""
+    query += " AND time > '{}'".format(since) if since else ""
 
     app.logger.warning("influx query: {}".format(query))
 
