@@ -273,9 +273,16 @@ def lagopus_get_job(jobid=None):
     return result
 
 
-def lagopus_get_job_stats(jobid):
+def lagopus_get_job_stats(jobid, since):
     ic = InfluxDBClient(database=jobid)
-    query = "select * from jobs;"
+    app.logger.error(">>> Since: {}".format(since))
+    if since:
+        query = "select * from jobs where time > '{}';".format(since)
+    else:
+        query = "select * from jobs;"
+
+    app.logger.warning("influx query: {}".format(query))
+
     try:
         data = ic.query(query)
         app.logger.warning("InfluxDB result: {}".format(data))
@@ -311,10 +318,21 @@ def lagopus_api_create_job():
 @app.route("/api/jobs/stats")
 def lagopus_api_get_jobs_stats():
     jobid = None
+    since = None
     try:
         jobid = request.args.get("job")
-        results = lagopus_get_job_stats(jobid)
-        app.logger.error("backend result: {}".format(results))
+    except:
+        app.logger.warning("No job id provided for stats call")
+
+    try:
+        since = request.args.get("since")
+    except:
+        app.logger.warning("No time limit provided for stats call")
+
+
+    try:
+        results = lagopus_get_job_stats(jobid, since)
+        app.logger.warning("backend result: {}".format(results))
         return jsonify(results)
     except:
         app.logger.warning("Couldn't get stats for job {}".format(jobid))
