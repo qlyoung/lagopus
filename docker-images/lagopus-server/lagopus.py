@@ -442,10 +442,10 @@ def crashes():
     return render_template("crashes.html", pagename=pagename)
 
 
-@app.route("/targets.html")
-def targets():
-    pagename = "Targets"
-    return render_template("targets.html", pagename=pagename)
+@app.route("/corpuses.html")
+def corpuses():
+    pagename = "Corpuses"
+    return render_template("corpuses.html", pagename=pagename)
 
 
 @app.route("/404.html")
