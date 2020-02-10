@@ -30,7 +30,7 @@ spec:
             memory: "{{ memory }}"
             cpu: "{{ cpu }}"
         env:
-        - name: LAGOPUS_JOB_ID
+        - name: JOB_ID
           value: "{{ jobid }}"
         - name: DRIVER
           value: {{ driver }}
@@ -45,7 +45,9 @@ spec:
         - name: INFLUXDB
           value: "lagopus-server:8086"
         - name: INFLUXDB_DB
-          value: "{{ jobid }}"
+          value: "lagopus"
+        - name: INFLUXDB_MEASUREMENT
+          value: "jobs"
         volumeMounts:
           - name: nfsvol
             mountPath: /{{ jobid }}
