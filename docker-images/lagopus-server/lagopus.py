@@ -377,7 +377,7 @@ app.config["SECRET_KEY"] = "389afsd89j34fasd"
 @app.route("/")
 @app.route("/index.html")
 def index():
-    pagename = "Home"
+    pagename = "Dashboard"
     jobs = lagopus_api_get_jobs()
     jc = len(jobs["data"]) if jobs is not None else 0
     return render_template("index.html", pagename=pagename, jobcount=jc)
