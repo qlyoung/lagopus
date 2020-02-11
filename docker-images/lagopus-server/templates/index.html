@@ -1,27 +1,51 @@
 {% extends "base.html" %}
 {% block content %}
 
-<!-- Jobs Card Example -->
-<div class="col-xl-2 col-md-6 mb-4">
-  <div class="card border-left-info shadow h-100 py-2">
-    <div class="card-body">
-      <div class="row no-gutters align-items-center">
-        <div class="col">
-          <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Jobs</div>
-          <div class="row no-gutters align-items-center">
-            <div class="col-auto">
-              <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800" id="jobcount"></div>
-                <script>
-                  $(document).ready(function() {
-                    $.ajax({
-                        type: "get",
-                        url: "api/jobs",
-                        success:function(data) {
-                            $("#jobcount").text(data['data'].length);
-                        }
+<!-- Jobs # -->
+<div class="row">
+  <div class="col col-md-6 mb-4">
+    <div class="card border-left-info shadow h-100 py-2">
+      <div class="card-body">
+        <div class="row no-gutters align-items-center">
+          <div class="col">
+            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Active Jobs</div>
+            <div class="row no-gutters align-items-center">
+              <div class="col-auto">
+                <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800" id="jobcount"></div>
+                  <script>
+                    $(document).ready(function() {
+                      $.ajax({
+                          type: "get",
+                          url: "api/jobs",
+                          success:function(data) {
+                              let active = data['data'].filter(function(job) {
+                                  return (job.status == "Incomplete");
+                              });
+                              $("#jobcount").text(active.length);
+                          }
+                      });
                     });
-                  });
-                </script>
+                  </script>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cluster Nodes -->
+  <div class="col col-md-6 mb-4">
+    <div class="card border-left-info shadow h-100 py-2">
+      <div class="card-body">
+        <div class="row no-gutters align-items-center">
+          <div class="col">
+            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Online Nodes</div>
+            <div class="row no-gutters align-items-center">
+              <div class="col-auto">
+                <!-- hyperscaling engaged -->
+                <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800" id="jobcount">3</div>
+              </div>
             </div>
           </div>
         </div>
