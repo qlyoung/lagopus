@@ -76,13 +76,30 @@ the steps described if your nodes are running microk8s on Ubuntu 18.04. Change
       rm /var/snap/microk8s/common/var/lib/kubelet/cpu_manager_state
       systemctl reset-failed snap.microk8s.daemon-kubelet
       systemctl restart snap.microk8s.daemon-kubelet
+  - name: install-nfs
+    command: apt install -y nfs-common
   - name: set-kernel-scheduler-performance
     command: cd /sys/devices/system/cpu; echo performance | tee cpu*/cpufreq/scaling_governor
     ignore_errors: yes
 ```
 
 1. Install Kubernetes on your nodes
-2. On your nodes, run the following:
+
+2. Join your nodes to the cluster
+
+   * microk8s:
+
+     Control plane:
+     ```
+     microk8s.add-node
+     ```
+     Node (run what the control plane gave you):
+
+     ```
+     microk8s.join <id>
+     ```
+
+3. On your nodes, run the following:
 
    ```
    echo "kernel.core_pattern=core" >> /etc/sysctl.conf
@@ -103,7 +120,7 @@ the steps described if your nodes are running microk8s on Ubuntu 18.04. Change
    cd /sys/devices/system/cpu; echo performance | tee cpu*/cpufreq/scaling_governor
    ```
 
-3. Set the following kubelet parameters on each of your nodes and restart
+4. Set the following kubelet parameters on each of your nodes and restart
    kubelet:
 
    ```
@@ -121,20 +138,6 @@ the steps described if your nodes are running microk8s on Ubuntu 18.04. Change
      ```
      Check `journalctl -u snap.microk8s.daemon-kubelet` if the service fails
      for debugging logs.
-
-4. Join your nodes to the cluster:
-
-   * microk8s:
-
-     Control plane:
-     ```
-     microk8s.add-node
-     ```
-     Node (run what the control plane gave you):
-
-     ```
-     microk8s.join <id>
-     ```
 
 5. Verify your cluster is configured on the control plane node, e.g.:
    ```
@@ -173,6 +176,7 @@ On Ubuntu 18.04:
 
   ```
   echo "/opt/lagopus_storage *(rw,sync,no_subtree_check,no_root_squash)" >> /etc/exports
+  systemctl restart nfs-server
   ```
 
 - Open firewall to allow NFS
