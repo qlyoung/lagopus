@@ -1,5 +1,5 @@
 <p align="center">
-<img src="https://raw.githubusercontent.com/qlyoung/lagopus/master/lagopus.svg" alt="Icon" width="20%"/>
+<img src="https://github.com/qlyoung/lagopus/blob/master/lagopus.svg" alt="Icon" width="20%"/>
 </p>
 
 # lagopus
