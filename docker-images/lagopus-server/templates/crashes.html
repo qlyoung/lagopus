@@ -15,21 +15,21 @@
         <thead>
           <tr>
             <th>Job</th>
-            <th>Description</th>
-            <th>Exploitability Class</th>
             <th>Sample</th>
+            <th>Type</th>
+            <th>Security Issue</th>
             <th>Backtrace</th>
-            <th>Backtrace Hash</th>
+            <th>Return Code</th>
           </tr>
         </thead>
         <tfoot>
           <tr>
             <th>Job</th>
-            <th>Description</th>
-            <th>Exploitability Class</th>
             <th>Sample</th>
+            <th>Type</th>
+            <th>Security Issue</th>
             <th>Backtrace</th>
-            <th>Backtrace Hash</th>
+            <th>Return Code</th>
           </tr>
         </tfoot>
       </table>
@@ -50,11 +50,16 @@ $(document).ready(function() {
               return '<a href="jobs.html?job=' + data + '">'+data+'</a>';
           }
         },
-        { data: 'description' },
-        { data: 'exploitability' },
         { data: 'sample_path' },
-        { data: 'backtrace' },
-        { data: 'backtrace_hash' }
+        { data: 'type' },
+        { data: 'is_security_issue' },
+        {
+          data: 'backtrace',
+          render: function(data, type, row, meta) {
+              return '<code style="display:block;white-space:pre-wrap;font-size:0.6em">'+data+'</code>';
+          }
+        },
+        { data: 'return_code' }
       ]
   } );
 } );
