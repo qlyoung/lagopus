@@ -151,40 +151,44 @@ mkdir jobresults/misc       # for miscellaneous job foo
 if [ "$DRIVER" == "afl" ]; then
   # in the afl case, afl uses /jobdata/results as its sync dir
 
-  # Deduplicate and classify crashes
+  # Collect and deduplicate crashes, with some analysis
   printf "Analyzing crashes...\n"
   afl-collect -d ./jobresults/crashes/crashes.db -e gdb_script -j $CORES $RESULT ./jobresults/crashes/ -- $TARGET
 
   # Collect backtraces
-  sqlite3 ./jobresults/crashes/crashes.db "create table Backtraces (Sample TEXT PRIMARY KEY, Backtrace TEXT);"
+  sqlite3 ./jobresults/crashes/crashes.db "create table analysis (sample TEXT PRIMARY KEY, type TEXT, is_crash INTEGER, is_security_issue INTEGER, should_ignore INTEGER, backtrace TEXT, output TEXT, return_code INTEGER);"
 
   for file in ./jobresults/crashes/*; do
     fname=$(basename "$file")
     if [ "$(basename "$file")" == "gdb_script" ] || [ "$(basename "$file")" == "crashes.db" ]; then continue; fi
 
-    # run test case and look for sanitizer crash output
-    # disabled for now because this is too fragile, only supports asan, doesn't
-    # see SIGABRT, etc. Instead just collect the run output, which will provide
-    # more info anyway
+    # run test case and collect output
+    $TARGET < "$file" &> output.txt
+    EC=$?
 
-    # "$TARGET" < "$file" 2>&1 | csplit - "/=============/"
-    # BT=$(cat "$(ls ./xx* | sort | tail -n 1)")
+    # Perform some more analysis with ClusterFuzz's crash analysis tooling
+    ANALYSIS_JSON=$(/analyzer/analyzer.py --outputfile output.txt --exitcode $EC)
 
-    BT=$("$TARGET" < "$file" 2>&1)
-
-    printf -v BTESC "%q" "$BT"
+    DB_SAMPLE="$fname"
+    DB_TYPE="$(echo "$ANALYSIS_JSON" | jq -r .type)"
+    DB_IS_CRASH="$(echo "$ANALYSIS_JSON" | jq .is_crash | sed -e 's/true/1/' -e 's/false/0/')"
+    DB_IS_SECURITY_ISSUE="$(echo "$ANALYSIS_JSON" | jq .is_security_issue | sed -e 's/true/1/' -e 's/false/0/')"
+    DB_SHOULD_IGNORE="$(echo "$ANALYSIS_JSON" | jq .should_ignore | sed -e 's/true/1/' -e 's/false/0/')"
+    DB_BACKTRACE="$(echo "$ANALYSIS_JSON" | jq -r .stacktrace)"
+    DB_OUTPUT="$(echo "$ANALYSIS_JSON" | jq -r .output)"
+    DB_RC="$(echo "$ANALYSIS_JSON" | jq -r .return_code)"
 
     # we do what has to be done, not because we wish to, but because we must
     python3 - <<-EOF
 	import sqlite3 as sq; c = sq.connect("jobresults/crashes/crashes.db");
-	c.execute("insert into Backtraces (Sample, Backtrace) values (?, ?)", ("""$fname""", """$BTESC"""))
+	c.execute("insert into analysis (sample, type, is_crash, is_security_issue, should_ignore, backtrace, output, return_code) values (?, ?, ?, ?, ?, ?, ?, ?)", ("""$DB_SAMPLE""", """$DB_TYPE""", $DB_IS_CRASH, $DB_IS_SECURITY_ISSUE, $DB_SHOULD_IGNORE, """$DB_BACKTRACE""", """$DB_OUTPUT""", $DB_RC))
 	c.commit(); c.close();
 	EOF
   done
 
   # Minimize corpus
   printf "Minimizing corpus...\n"
-  afl-minimize -c ./jobresults/corpus --cmin --cmin-mem-limit=none --tmin --tmin-mem-limit=none -j $CORES $RESULT -- $TARGET
+  afl-minimize -c ./jobresults/corpus --cmin --cmin-mem-limit=none -j $CORES $RESULT -- $TARGET
 
   # FIXME: these will overwrite each other in the copy
   printf "Copying miscellaneous datum...\n"

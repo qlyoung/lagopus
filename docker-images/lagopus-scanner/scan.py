@@ -8,6 +8,7 @@ import pprint
 import argparse
 from pathlib import Path
 from zipfile import ZipFile
+from collections import defaultdict
 
 import mysql.connector
 
@@ -46,17 +47,21 @@ def process_jobresults(jobid, jobresult_zip, crashdb, cnx):
         """
         mysql_cursor = mysql_cnx.cursor()
 
-        query = "INSERT INTO crashes (job_id, description, exploitability, sample_path, backtrace, backtrace_hash) VALUES (%s, %s, %s, %s, %s, %s)"
+        entry = defaultdict(lambda: None, entry)
+
+        query = "INSERT INTO crashes (job_id, type, is_security_issue, is_crash, sample_path, backtrace, backtrace_hash, return_code) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
         try:
             mysql_cursor.execute(
                 query,
                 (
                     jobid,
-                    entry["Classification_Description"],
-                    entry["Classification"],
+                    entry["Type"],
+                    entry["Is_Security_Issue"],
+                    entry["Is_Crash"],
                     entry["Sample"],
                     entry["Backtrace"],
                     entry["Hash"],
+                    entry["Return_Code"],
                 ),
             )
         except mysql.connector.errors.IntegrityError as err:
@@ -95,15 +100,22 @@ def process_jobresults(jobid, jobresult_zip, crashdb, cnx):
 
         # pull backtrace, if any, into dictionary
         print("Exporting entry: {}".format(entry))
-        backtrace = cdbcur.execute(
-            "SELECT Backtrace FROM Backtraces WHERE Sample = '{}'".format(
-                entry["Sample"]
-            )
+        analysis = cdbcur.execute(
+            "SELECT * FROM analysis WHERE sample = '{}'".format(entry["Sample"])
         )
-        backtrace = backtrace.fetchone() if backtrace else backtrace
-        backtrace = backtrace["Backtrace"] if backtrace else backtrace
-        print("Backtrace: {}".format(backtrace))
-        entry["Backtrace"] = backtrace
+
+        if analysis:
+            analysis = analysis.fetchone()
+
+        if analysis:
+            entry["Type"] = analysis["type"]
+            entry["Is_Crash"] = bool(analysis["is_crash"])
+            entry["Is_Security_Issue"] = bool(analysis["is_security_issue"])
+            entry["Backtrace"] = analysis["backtrace"]
+            entry["Return_Code"] = analysis["return_code"]
+            # unused
+            entry["Should_Ignore"] = bool(analysis["should_ignore"])
+            entry["Output"] = analysis["output"]
 
         if cnx:
             export_to_mysql(entry, cnx)
