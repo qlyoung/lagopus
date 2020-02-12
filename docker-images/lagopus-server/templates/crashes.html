@@ -50,13 +50,19 @@ $(document).ready(function() {
               return '<a href="jobs.html?job=' + data + '">'+data+'</a>';
           }
         },
-        { data: 'sample_path' },
+        {
+          data: 'sample_path',
+          render: function(data, type, row, meta) {
+              return '<a href="api/jobs/corpus?job=_&sample='+data+'">Download</a>';
+          }
+        },
         { data: 'type' },
         { data: 'is_security_issue' },
         {
           data: 'backtrace',
+          width: '35%',
           render: function(data, type, row, meta) {
-              return '<code style="display:block;white-space:pre-wrap;font-size:0.6em">'+data+'</code>';
+              return '<details><summary>Click for stack trace</summary><code style="display:block;white-space:pre-wrap;font-size:0.6em">'+data+'</code></details>';
           }
         },
         { data: 'return_code' }
