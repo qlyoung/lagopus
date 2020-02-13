@@ -24,6 +24,8 @@ function lagopus_update_chart(chart, jobid) {
             url: "api/jobs/stats?job=" + jobid + (since != null ? "&since=" + since : ''),
             success: function(data) {
                 console.log(data);
+                if (data.length == 0)
+		    return;
                 newdata = data.map(function(point) {
                     return {
                         x: new moment(point['time']),
