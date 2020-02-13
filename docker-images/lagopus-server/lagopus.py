@@ -290,7 +290,7 @@ def lagopus_get_job_stats(jobid, since=None, summary=False):
     #
     # Also because of the MEAN(), Influx changes all the field names to prefix
     # with 'mean_', bit annoying -.-
-    query += " GROUP BY time(1m)"
+    query += " GROUP BY time(1m) fill(none)"
 
     app.logger.warning("influx query: {}".format(query))
 
