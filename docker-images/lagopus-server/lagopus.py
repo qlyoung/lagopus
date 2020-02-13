@@ -167,6 +167,20 @@ def lagopus_k8s_get_jobs(jobid=None, namespace="default"):
         jobs.append(onejob)
     return jobs
 
+def lagopus_k8s_get_nodes():
+    nodes = []
+    for node in apis["corev1"].list_node().items:
+        onenode = {
+            "name": node.metadata.name,
+            "phase": node.status.phase,
+            "allocatable": node.status.allocatable,
+            # FIXME: should be mapped to native python types
+            "conditions": node.status.conditions,
+        }
+        nodes.append(onenode)
+
+    app.logger.warning("Nodes: {}".format(nodes))
+    return nodes
 
 # ---
 # Backend
@@ -176,6 +190,8 @@ from mysql.connector import errorcode
 
 cnx = None
 
+def lagopus_get_node():
+    return lagopus_k8s_get_nodes()
 
 def lagopus_db_connect():
     """
@@ -330,6 +346,13 @@ def apply_caching(response):
 # --------
 # JSON API
 # --------
+
+
+@app.route("/api/nodes")
+def lagopus_api_get_nodes():
+    return lagopus_get_node()
+
+
 @app.route("/api/createjob")
 def lagopus_api_create_job():
     pass
@@ -391,7 +414,9 @@ def index():
     pagename = "Dashboard"
     jobs = lagopus_api_get_jobs()
     jc = len(jobs["data"]) if jobs is not None else 0
-    return render_template("index.html", pagename=pagename, jobcount=jc)
+    nodes = lagopus_api_get_nodes()
+    nc = len(nodes) if nodes is not None else 0
+    return render_template("index.html", pagename=pagename, jobcount=jc, nodecount=nc)
 
 
 @app.route("/upload", methods=["POST"])
