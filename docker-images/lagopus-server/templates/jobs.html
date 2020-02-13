@@ -133,8 +133,8 @@ $(document).on('change', '.custom-file-input', function (event) {
                     type: "get",
                     url: "api/jobs/stats?job={{ jobid }}",
                     success: function(data) {
-                        $("#summary_crashes").text(data[data.length - 1]['crashes']);
-                        $("#summary_paths").text(data[data.length - 1]['total_paths']);
+                        $("#summary_crashes").text(data[data.length - 1]['mean_crashes']);
+                        $("#summary_paths").text(data[data.length - 1]['mean_total_paths']);
                     }
                 });
                 setTimeout(update_summary, 15000);
