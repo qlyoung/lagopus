@@ -47,7 +47,7 @@ function lagopus_job_aflstat(ctx, jobid) {
         type: 'line',
         data: {
             datasets: [{
-                influx_column: 'total_paths',
+                influx_column: 'mean_total_paths',
                 label: 'Total paths',
                 pointRadius: 1,
                 backgroundColor: color(lagopusChartColors.grey).alpha(0.3).rgbString(),
@@ -55,7 +55,7 @@ function lagopus_job_aflstat(ctx, jobid) {
                 data: []
             },
             {
-                influx_column: 'current_path',
+                influx_column: 'mean_current_path',
                 label: 'Current path',
                 pointRadius: 1,
                 backgroundColor: color(lagopusChartColors.white).alpha(0.4).rgbString(),
@@ -63,7 +63,7 @@ function lagopus_job_aflstat(ctx, jobid) {
                 data: []
             },
             {
-                influx_column: 'pending',
+                influx_column: 'mean_pending',
                 label: 'Pending paths',
                 pointRadius: 1,
                 backgroundColor: color(lagopusChartColors.blue).alpha(0.5).rgbString(),
@@ -71,7 +71,7 @@ function lagopus_job_aflstat(ctx, jobid) {
                 data: []
             },
             {
-                influx_column: 'pending_fav',
+                influx_column: 'mean_pending_fav',
                 label: 'Pending favored paths',
                 pointRadius: 1,
                 backgroundColor: color(lagopusChartColors.red).alpha(0.8).rgbString(),
@@ -120,7 +120,7 @@ function lagopus_job_aflperf(ctx, jobid) {
         type: 'line',
         data: {
             datasets: [{
-                influx_column: 'execs_per_sec',
+                influx_column: 'mean_execs_per_sec',
                 label: 'Execs / sec',
                 pointRadius: 1,
                 backgroundColor: color(lagopusChartColors.blue).alpha(0.6).rgbString(),

@@ -277,9 +277,20 @@ def lagopus_get_job_stats(jobid, since=None, summary=False):
     ic = InfluxDBClient(database="lagopus")
     app.logger.error(">>> Since: {}".format(since))
 
-    query = "select * from jobs"
+    query = "select MEAN(*) from jobs"
     query += " where job_id = '{}'".format(jobid) if jobid else ""
     query += " AND time > '{}'".format(since) if since else ""
+    # TODO: revisit this; this is a bit of a hack. Without downsampling like
+    # this, 10 hours or so the amount of metrics data will be in the mb range.
+    # The web UI especially doesn't like this, and it gets extremely slow when
+    # we plot several mb of data in the monitoring graphs. 1 minute seems like
+    # a happy medium; still decent resolution, but low enough that the data
+    # size isn't huge after a few days. Should be revisited as I'm sure someone
+    # will eventually have a use case for higher res data.
+    #
+    # Also because of the MEAN(), Influx changes all the field names to prefix
+    # with 'mean_', bit annoying -.-
+    query += " GROUP BY time(1m)"
 
     app.logger.warning("influx query: {}".format(query))
 
