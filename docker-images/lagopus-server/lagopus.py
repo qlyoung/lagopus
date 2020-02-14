@@ -76,7 +76,7 @@ def lagopus_jobid(name, driver, time):
     :rtype: str
     :return: job ID
     """
-    return "{}.{}.{}".format(name, driver, time.strftime("%Y-%m-%d-%H-%M-%S"))
+    return "{}.{}.{}".format(name, driver.lower(), time.strftime("%Y-%m-%d-%H-%M-%S"))
 
 
 def lagopus_get_kubeapis():
@@ -460,7 +460,12 @@ def index():
     jc = len(jobs["data"]) if jobs is not None else 0
     nodes = lagopus_api_get_nodes()
     nc = len(nodes) if nodes is not None else 0
-    return render_template("index.html", pagename=pagename, jobcount=jc, nodecount=nc)
+    return render_template("index.html",
+pagename=pagename,
+        defaultdeadline=CONFIG["jobs"]["deadline"],
+        defaultmemory=CONFIG["jobs"]["memory"],
+        defaultcores=CONFIG["jobs"]["cores"],
+        jobcount=jc, nodecount=nc)
 
 
 @app.route("/upload", methods=["POST"])
@@ -509,10 +514,7 @@ def jobs():
     return render_template(
         "jobs.html",
         pagename=pagename,
-        defaultdeadline=CONFIG["jobs"]["deadline"],
-        defaultmemory=CONFIG["jobs"]["memory"],
-        defaultcores=CONFIG["jobs"]["cores"],
-        jobid=jobid,
+        jobid=jobid
     )
 
 
