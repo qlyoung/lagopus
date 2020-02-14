@@ -168,6 +168,7 @@ def lagopus_k8s_get_jobs(jobid=None, namespace="default"):
         jobs.append(onejob)
     return jobs
 
+
 def lagopus_k8s_get_nodes():
     nodes = []
     for node in apis["corev1"].list_node().items:
@@ -183,6 +184,7 @@ def lagopus_k8s_get_nodes():
     app.logger.warning("Nodes: {}".format(nodes))
     return nodes
 
+
 # ---
 # Backend
 # ---
@@ -192,8 +194,10 @@ from zipfile import ZipFile
 
 cnx = None
 
+
 def lagopus_get_node():
     return lagopus_k8s_get_nodes()
+
 
 def lagopus_get_crash_sample(jobid, samplename):
     jobdir = CONFIG["dirs"]["jobs"] + "/" + jobid
@@ -210,10 +214,11 @@ def lagopus_get_crash_sample(jobid, samplename):
         return None
 
     # FIXME: this is crap
-    extractpath = '/tmp/' + samplename
+    extractpath = "/tmp/" + samplename
     extractpath = zf.extract(samples[0], extractpath)
 
     return extractpath
+
 
 def lagopus_db_connect():
     """
@@ -288,7 +293,10 @@ def lagopus_get_job(jobid=None):
     # ...job status, etc
     k8s_jobs = lagopus_k8s_get_jobs(jobid)
     # Set all incomplete job statuses to "Unknown"
-    cursor.execute("UPDATE jobs SET status = %(status)s WHERE status <> 'Complete'", {"status": "Unknown"})
+    cursor.execute(
+        "UPDATE jobs SET status = %(status)s WHERE status <> 'Complete'",
+        {"status": "Unknown"},
+    )
     # Update with statuses from k8s
     for job in k8s_jobs:
         app.logger.warning(job)
@@ -348,7 +356,7 @@ def lagopus_get_crash(jobid=None):
 
     query = "SELECT * FROM crashes"
     # FIXME: sqli
-    query += " WHERE jobid = {}".format(jobid) if jobid else ''
+    query += " WHERE jobid = {}".format(jobid) if jobid else ""
 
     cursor.execute(query)
 
@@ -402,7 +410,6 @@ def lagopus_api_get_jobs_stats():
     except:
         app.logger.warning("No time limit provided for stats call")
 
-
     try:
         results = lagopus_get_job_stats(jobid, since)
         app.logger.warning("backend result: {}".format(results))
@@ -438,7 +445,9 @@ def lagopus_api_get_crashes():
 
     if samplename and jobid:
         # FIXME probably terribly insecure
-        return send_file(lagopus_get_crash_sample(jobid, samplename), as_attachment=True)
+        return send_file(
+            lagopus_get_crash_sample(jobid, samplename), as_attachment=True
+        )
     elif samplename:
         # sample name with no job id is meaningless
         pass
@@ -452,6 +461,7 @@ def lagopus_api_get_crashes():
 # Web interface
 # -------------
 
+
 @app.route("/")
 @app.route("/index.html")
 def index():
@@ -460,12 +470,15 @@ def index():
     jc = len(jobs["data"]) if jobs is not None else 0
     nodes = lagopus_api_get_nodes()
     nc = len(nodes) if nodes is not None else 0
-    return render_template("index.html",
-pagename=pagename,
+    return render_template(
+        "index.html",
+        pagename=pagename,
         defaultdeadline=CONFIG["jobs"]["deadline"],
         defaultmemory=CONFIG["jobs"]["memory"],
         defaultcores=CONFIG["jobs"]["cores"],
-        jobcount=jc, nodecount=nc)
+        jobcount=jc,
+        nodecount=nc,
+    )
 
 
 @app.route("/upload", methods=["POST"])
@@ -511,11 +524,7 @@ def jobs():
         jobid = request.args.get("job")
     except:
         app.logger.info("No job specified")
-    return render_template(
-        "jobs.html",
-        pagename=pagename,
-        jobid=jobid
-    )
+    return render_template("jobs.html", pagename=pagename, jobid=jobid)
 
 
 @app.route("/crashes.html")
