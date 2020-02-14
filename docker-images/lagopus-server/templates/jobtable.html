@@ -43,7 +43,7 @@
           {
             data: 'job_id',
             render: function(data, type, row, meta) {
-                return '<a href="jobs.html?job=' + data + '">'+data+'</a>';
+                return '<a href="jobs.html?job=' + encodeURIComponent(data) + '">'+data+'</a>';
             }
           },
           { data: 'status' },

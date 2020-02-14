@@ -8,6 +8,7 @@ import os
 from flask import Flask
 from flask import render_template
 from flask import send_from_directory
+from flask import send_file
 from flask import request
 from flask import flash
 from flask import redirect, url_for
@@ -187,11 +188,32 @@ def lagopus_k8s_get_nodes():
 # ---
 import mysql.connector
 from mysql.connector import errorcode
+from zipfile import ZipFile
 
 cnx = None
 
 def lagopus_get_node():
     return lagopus_k8s_get_nodes()
+
+def lagopus_get_crash_sample(jobid, samplename):
+    jobdir = CONFIG["dirs"]["jobs"] + "/" + jobid
+    jobresult_file = jobdir + "/jobresults.zip"
+    if not os.path.exists(jobresult_file):
+        app.logger.warning("No file '{}'".format(jobresult_file))
+        return None
+
+    zf = ZipFile(jobresult_file)
+    app.logger.warning("Looking for '{}' in '{}'".format(samplename, jobresult_file))
+    samples = list(filter(lambda x: samplename in x, zf.namelist()))
+    if not samples:
+        app.logger.warning("Sample '{}' not found")
+        return None
+
+    # FIXME: this is crap
+    extractpath = '/tmp/' + samplename
+    extractpath = zf.extract(samples[0], extractpath)
+
+    return extractpath
 
 def lagopus_db_connect():
     """
@@ -321,9 +343,15 @@ def lagopus_get_job_stats(jobid, since=None, summary=False):
     return results
 
 
-def lagopus_get_crash():
+def lagopus_get_crash(jobid=None):
     cursor = lagopus_db_cursor(dictionary=True)
-    cursor.execute("SELECT * FROM crashes")
+
+    query = "SELECT * FROM crashes"
+    # FIXME: sqli
+    query += " WHERE jobid = {}".format(jobid) if jobid else ''
+
+    cursor.execute(query)
+
     result = cursor.fetchall()
     app.logger.error("Result: {}".format(result))
     return result
@@ -346,6 +374,8 @@ def apply_caching(response):
 # --------
 # JSON API
 # --------
+app.config["UPLOAD_FOLDER"] = "/tmp/"
+app.config["SECRET_KEY"] = "389afsd89j34fasd"
 
 
 @app.route("/api/nodes")
@@ -396,6 +426,23 @@ def lagopus_api_get_jobs():
 
 @app.route("/api/crashes")
 def lagopus_api_get_crashes():
+    try:
+        jobid = request.args.get("job")
+    except:
+        app.logger.info("No job specified")
+
+    try:
+        samplename = request.args.get("sample")
+    except:
+        app.logger.info("No sample specified")
+
+    if samplename and jobid:
+        # FIXME probably terribly insecure
+        return send_file(lagopus_get_crash_sample(jobid, samplename), as_attachment=True)
+    elif samplename:
+        # sample name with no job id is meaningless
+        pass
+
     crashes = lagopus_get_crash()
     crashes = crashes if crashes else []
     return {"data": crashes}
@@ -404,9 +451,6 @@ def lagopus_api_get_crashes():
 # -------------
 # Web interface
 # -------------
-app.config["UPLOAD_FOLDER"] = "/tmp/"
-app.config["SECRET_KEY"] = "389afsd89j34fasd"
-
 
 @app.route("/")
 @app.route("/index.html")
