@@ -500,7 +500,7 @@ def upload():
     lagopus_create_job(
         jobname, driver, savepath, cores=cores, memory=memory, deadline=deadline
     )
-    return redirect(url_for("jobs", filename=filename))
+    return redirect(url_for("index"))
 
 
 @app.route("/jobs.html")
