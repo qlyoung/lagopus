@@ -5,7 +5,7 @@
 #
 # Required environment variables:
 # - JOBDATA: absolute path to directory with target.zip
-# - DRIVER: the fuzzing driver, one of [afl, libfuzzer]
+# - DRIVER: the fuzzing driver, one of [afl, libFuzzer]
 #
 # Optional environment variables:
 # - FUZZER_TIMEOUT: how long to fuzz for (default 3600s)
@@ -94,9 +94,9 @@ if [ "$DRIVER" == "afl" ]; then
   # bash -c 'cd /sys/devices/system/cpu; echo performance | tee cpu*/cpufreq/scaling_governor'
   afl-multicore -s 1 -v -c $AFLMCC start $CORES
   COUNTFUZZER_CMD="pgrep -c afl-fuzz"
-elif [ "$DRIVER" == "libfuzzer" ]; then
-  ./target -detect_leaks=0 -rss_limit_mb=0 -jobs=$CORES -workers=$CORES $RESULT $CORPUS &
-  COUNTFUZZER_CMD="pgrep -c $TARGET"
+elif [ "$DRIVER" == "libFuzzer" ]; then
+  ./target -max_total_time=$FUZZER_TIMEOUT -detect_leaks=0 -rss_limit_mb=0 -jobs=$CORES -workers=$CORES $CORPUS &
+  COUNTFUZZER_CMD="pgrep -fc rss_limit_mb"
 else
   printf "Fuzzing driver '%s' unsupported; exiting\n" "$DRIVER"
   exit 1
@@ -116,8 +116,12 @@ while [ "$FUZZERS_ALIVE" -ne "0" ] && [ ! -f /shouldexit ] && [ ! $ELAPSED_TIME 
 	MEM_USAGE=$(free -h | grep "Mem" | tr -s ' ' | cut -d' ' -f3)
 	printf "%d fuzzers alive, cpu: %s, mem: %s\n" "$FUZZERS_ALIVE" "$CPU_USAGE" "$MEM_USAGE"
 
-	if [[ ! -z "$INFLUXDB" && "$DRIVER" == "afl" ]]; then
-	  bash /monitor-afl.sh -i "$INFLUXDB_HOST" -p $INFLUXDB_PORT -d "$INFLUXDB_DB" -m "$INFLUXDB_MEASUREMENT" $RESULT
+	if [ ! -z "$INFLUXDB" ]; then
+          if [ "$DRIVER" == "afl" ]; then
+	    bash /monitor-afl.sh -i "$INFLUXDB_HOST" -p $INFLUXDB_PORT -d "$INFLUXDB_DB" -m "$INFLUXDB_MEASUREMENT" $RESULT
+          elif [ "$DRIVER" == "libFuzzer" ]; then
+	    bash /monitor-libfuzzer.sh -i "$INFLUXDB_HOST" -p $INFLUXDB_PORT -d "$INFLUXDB_DB" -m "$INFLUXDB_MEASUREMENT"
+	  fi
 	fi
 	sleep 1
 done
@@ -140,6 +144,12 @@ fi
 
 if [ "$DRIVER" == "afl" ]; then
 	afl-multikill -S $(jq -r .session $AFLMCC)
+elif [ "$DRIVE" == "libFuzzer" ]; then
+	# FIXME: This doesn't work when the binary has custom handlers for
+	# SIGUSR1, and while good fuzzing targets should already have taken
+	# care of this, we should still detect when they don't die and
+	# forcefully kill them
+	kill -SIGUSR1 "$TARGET"
 fi
 
 # collect results based on the driver
@@ -194,16 +204,31 @@ if [ "$DRIVER" == "afl" ]; then
   printf "Copying miscellaneous datum...\n"
   find $RESULT -print0 -type f -name 'fuzzer_stats' | xargs cp -t jobresults/misc
 
-elif [ "$DRIVER" == "libfuzzer" ]; then
-  # in the libfuzzer case, corpus data is written to /jobdata/results
+elif [ "$DRIVER" == "libFuzzer" ]; then
+  # in the libFuzzer case, corpus data is written to /jobdata/results
+  printf "Analyzing crashes...\n"
 
-  cp -r $RESULT/* jobresults/misc/
-  # presently libfuzzer kills itself when it finds a bug, and just writes a
-  # normal corpus file but prefixed with the type of bug it found
+  # presently libFuzzer kills itself when it finds a bug, and just writes a
+  # normal corpus file but prefixed with the type of bug it found, into the
+  # current directory
   cp -r $RESULT/crash* jobresults/crashes/
   cp -r $RESULT/leak* jobresults/crashes/
   cp -r $RESULT/*slow* jobresults/crashes/
+  # logs - need to be copied before minimize, otherwise lf will overwrite them
   cp fuzz*.log jobresults/misc/
+
+  # TODO
+
+  printf "Minimizing corpus...\n"
+
+
+  # afl-tmin type functionality is available via -minimize_crash, which might
+  # be useful during the analysis step or here.
+  mkdir minimized
+  $TARGET -merge=1 -rss_limit_mb=0 -jobs=$CORES -workers=$CORES minimized $CORPUS
+
+  cp -r $RESULT/* minimized/
+  mv minimized jobresults/corpus/
 
 fi
 
