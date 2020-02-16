@@ -43,7 +43,10 @@
 <script>
 $(document).ready(function() {
   $('#dataTable').DataTable( {
-      "ajax": "api/crashes",
+      "ajax": {
+          "url": "api/crashes",
+          "dataSrc": ""
+      },
       "columns": [
         {
           data: 'job_id',
