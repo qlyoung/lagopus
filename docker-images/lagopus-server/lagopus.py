@@ -5,7 +5,7 @@
 
 import os
 
-from flask import Flask
+from flask import Flask, Blueprint
 from flask import render_template
 from flask import send_from_directory
 from flask import send_file
@@ -13,12 +13,17 @@ from flask import request
 from flask import flash
 from flask import redirect, url_for
 from flask import jsonify
+from flask_restx import Resource, Api, reqparse
+from werkzeug import FileStorage
 from werkzeug.utils import secure_filename
 
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError
 
 app = Flask(__name__)
+blueprint = Blueprint("api", __name__, url_prefix="/api")
+api = Api(blueprint)
+app.register_blueprint(blueprint)
 
 # Global settings ------------------------
 CONFIG = {
@@ -57,13 +62,13 @@ def lagopus_sanitycheck():
     Check that:
     - all necessary directories exist
     """
-    for k, v in CONFIG["dirs"].items():
+    for v in CONFIG["dirs"].values():
         if not os.path.exists(v):
             app.logger.error("Creating '{}'".format(v))
             pathlib.Path(v).mkdir(parents=True, exist_ok=True)
 
 
-def lagopus_jobid(name, driver, time):
+def lagopus_job_id(name, driver, time):
     """
     Generate a unique job ID based on the job name.
 
@@ -91,7 +96,7 @@ apis = lagopus_get_kubeapis()
 
 
 def lagopus_k8s_create_job(
-    jobid, driver, target, cores=2, memory=200, deadline=240, namespace="default"
+    job_id, driver, target, cpus, memory, deadline, namespace="default"
 ):
     """
     Add a new job.
@@ -102,20 +107,20 @@ def lagopus_k8s_create_job(
 
     # create job
     job = env.get_template("job.yaml")
-    jobdir = CONFIG["dirs"]["jobs"] + "/" + jobid
+    jobdir = CONFIG["dirs"]["jobs"] + "/" + job_id
     pathlib.Path(jobdir).mkdir(parents=True, exist_ok=True)
     st = os.stat(jobdir)
     os.chmod(jobdir, st.st_mode | stat.S_IWOTH | stat.S_IXOTH | stat.S_IROTH)
     app.logger.error("Job directory: {}".format(jobdir))
     jobconf = {}
-    jobconf["jobname"] = jobid
-    jobconf["jobid"] = jobid
-    jobconf["cpu"] = str(cores)
+    jobconf["jobname"] = job_id
+    jobconf["jobid"] = job_id
+    jobconf["cpu"] = str(cpus)
     jobconf["memory"] = "{}Mi".format(memory)
     jobconf["deadline"] = deadline
     jobconf["driver"] = driver
     jobconf["namespace"] = namespace
-    jobconf["jobpath"] = "jobs/" + jobid
+    jobconf["jobpath"] = "jobs/" + job_id
     with open(jobdir + "/job.yaml", "w") as genjob:
         rj = job.render(**jobconf)
         jobyaml = yaml.safe_load(rj)
@@ -135,7 +140,7 @@ def lagopus_k8s_create_job(
     return response
 
 
-def lagopus_k8s_get_jobs(jobid=None, namespace="default"):
+def lagopus_k8s_get_jobs(job_id=None, namespace="default"):
     jobs = []
     for job in apis["batchv1"].list_namespaced_job(namespace).items:
         onejob = {}
@@ -189,35 +194,9 @@ def lagopus_k8s_get_nodes():
 # Backend
 # ---
 import mysql.connector
-from mysql.connector import errorcode
 from zipfile import ZipFile
 
 cnx = None
-
-
-def lagopus_get_node():
-    return lagopus_k8s_get_nodes()
-
-
-def lagopus_get_crash_sample(jobid, samplename):
-    jobdir = CONFIG["dirs"]["jobs"] + "/" + jobid
-    jobresult_file = jobdir + "/jobresults.zip"
-    if not os.path.exists(jobresult_file):
-        app.logger.warning("No file '{}'".format(jobresult_file))
-        return None
-
-    zf = ZipFile(jobresult_file)
-    app.logger.warning("Looking for '{}' in '{}'".format(samplename, jobresult_file))
-    samples = list(filter(lambda x: samplename in x, zf.namelist()))
-    if not samples:
-        app.logger.warning("Sample '{}' not found")
-        return None
-
-    # FIXME: this is crap
-    extractpath = "/tmp/" + samplename
-    extractpath = zf.extract(samples[0], extractpath)
-
-    return extractpath
 
 
 def lagopus_db_connect():
@@ -250,7 +229,7 @@ def lagopus_db_cursor(**kwargs):
 
     try:
         cnx.ping(reconnect=True, attempts=3, delay=5)
-    except mysql.connector.Error as err:
+    except mysql.connector.Error:
         cnx = lagopus_db_connect()
 
     return cnx.cursor(**kwargs)
@@ -263,111 +242,148 @@ if not cnx:
     exit(1)
 
 
-def lagopus_create_job(name, driver, target, cores=2, memory=200, deadline=240):
-    # generate unique job id
-    now = datetime.datetime.now()
-    jobid = lagopus_jobid(name, driver, now)
+class LagopusNode(object):
+    def get(self):
+        return lagopus_k8s_get_nodes()
 
-    status = "Created"
-    create_timestamp = now.strftime("%Y-%m-%d %H-%M-%S")
 
-    # insert new job into db
-    cursor = lagopus_db_cursor()
-    cursor.execute(
-        "INSERT INTO jobs (job_id, status, driver, target, cores, memory, deadline, create_time) VALUES ('{}', '{}', '{}', '{}', {}, {}, {}, '{}')".format(
-            jobid, status, driver, target, cores, memory, deadline, create_timestamp
+class LagopusCrash(object):
+    def get(self, job_id=None):
+        cursor = lagopus_db_cursor(dictionary=True)
+
+        query = "SELECT * FROM crashes"
+        # FIXME: sqli
+        query += " WHERE job_id = {}".format(job_id) if job_id else ""
+
+        cursor.execute(query)
+
+        result = cursor.fetchall()
+        app.logger.error("Result: {}".format(result))
+        return result
+
+    def get_sample(self, job_id, sample_name):
+        jobdir = CONFIG["dirs"]["jobs"] + "/" + job_id
+        jobresult_file = jobdir + "/jobresults.zip"
+        if not os.path.exists(jobresult_file):
+            app.logger.warning("No file '{}'".format(jobresult_file))
+            return None
+
+        zf = ZipFile(jobresult_file)
+        app.logger.warning(
+            "Looking for '{}' in '{}'".format(sample_name, jobresult_file)
         )
-    )
-    cursor.close()
+        samples = list(filter(lambda x: sample_name in x, zf.namelist()))
+        if not samples:
+            app.logger.warning("Sample '{}' not found")
+            return None
 
-    # create in k8s
-    lagopus_k8s_create_job(jobid, driver, target, cores, memory, deadline)
+        # FIXME: this is crap
+        extractpath = "/tmp/" + sample_name
+        extractpath = zf.extract(samples[0], extractpath)
 
-    return jobid
+        return extractpath
 
 
-def lagopus_get_job(jobid=None):
-    cursor = lagopus_db_cursor(dictionary=True)
+class LagopusJob(object):
+    def __init__(self):
+        pass
 
-    # update db from k8s
-    # ...job status, etc
-    k8s_jobs = lagopus_k8s_get_jobs(jobid)
-    # Set all incomplete job statuses to "Unknown"
-    cursor.execute(
-        "UPDATE jobs SET status = %(status)s WHERE status <> 'Complete'",
-        {"status": "Unknown"},
-    )
-    # Update with statuses from k8s
-    for job in k8s_jobs:
-        app.logger.warning(job)
+    def get(self, job_id=None):
+        cursor = lagopus_db_cursor(dictionary=True)
+
+        # update db from k8s
+        # ...job status, etc
+        k8s_jobs = lagopus_k8s_get_jobs(job_id)
+
+        # Set all incomplete job statuses to "Unknown"
         cursor.execute(
-            "UPDATE jobs SET status = %(status)s WHERE job_id = %(job_id)s",
-            {"status": job["status"], "job_id": job["name"]},
+            "UPDATE jobs SET status = %(status)s WHERE status <> 'Complete'",
+            {"status": "Unknown"},
         )
+        # Update with statuses from k8s
+        for job in k8s_jobs:
+            app.logger.warning(job)
+            cursor.execute(
+                "UPDATE jobs SET status = %(status)s WHERE job_id = %(job_id)s",
+                {"status": job["status"], "job_id": job["name"]},
+            )
 
-    # fetch from db
-    cursor = lagopus_db_cursor(dictionary=True)
-    if jobid:
+        # fetch from db
+        cursor = lagopus_db_cursor(dictionary=True)
+        if job_id:
+            cursor.execute(
+                "SELECT * FROM jobs WHERE job_id = %(job_id)s", {"job_id": job_id}
+            )
+        else:
+            cursor.execute("SELECT * FROM jobs")
+        result = cursor.fetchall()
+        app.logger.error("Result: {}".format(result))
+
+        return result
+
+    def create(self, job_id, name, driver, file, deadline, cpus, memory):
+        # generate unique job id
+        now = datetime.datetime.now()
+        job_id = lagopus_job_id(name, driver, now)
+
+        status = "Created"
+        create_timestamp = now.strftime("%Y-%m-%d %H-%M-%S")
+
+        # insert new job into db
+        cursor = lagopus_db_cursor()
         cursor.execute(
-            "SELECT * FROM jobs WHERE job_id = %(job_id)s", {"job_id": jobid}
+            "INSERT INTO jobs (job_id, status, driver, target, cores, memory, deadline, create_time) VALUES ('{}', '{}', '{}', '{}', {}, {}, {}, '{}')".format(
+                job_id, status, driver, file, cpus, memory, deadline, create_timestamp
+            )
         )
-    else:
-        cursor.execute("SELECT * FROM jobs")
-    result = cursor.fetchall()
-    app.logger.error("Result: {}".format(result))
+        cursor.close()
 
-    return result
+        # create in k8s
+        lagopus_k8s_create_job(job_id, driver, file, cpus, memory, deadline)
 
+    def delete(self, job_id):
+        pass
 
-def lagopus_get_job_stats(jobid, since=None, summary=False):
-    ic = InfluxDBClient(database="lagopus")
-    app.logger.error(">>> Since: {}".format(since))
+    # --
 
-    query = "select MEAN(*) from jobs"
-    query += " where job_id = '{}'".format(jobid) if jobid else ""
-    query += " AND time > '{}'".format(since) if since else ""
-    # TODO: revisit this; this is a bit of a hack. Without downsampling like
-    # this, 10 hours or so the amount of metrics data will be in the mb range.
-    # The web UI especially doesn't like this, and it gets extremely slow when
-    # we plot several mb of data in the monitoring graphs. 1 minute seems like
-    # a happy medium; still decent resolution, but low enough that the data
-    # size isn't huge after a few days. Should be revisited as I'm sure someone
-    # will eventually have a use case for higher res data.
-    #
-    # Also because of the MEAN(), Influx changes all the field names to prefix
-    # with 'mean_', bit annoying -.-
-    query += " GROUP BY time(1m) fill(none)"
+    def get_stats(self, job_id, since):
+        ic = InfluxDBClient(database="lagopus")
+        app.logger.error(">>> Since: {}".format(since))
 
-    app.logger.warning("influx query: {}".format(query))
+        query = "select MEAN(*) from jobs"
+        query += " where job_id = '{}'".format(job_id) if job_id else ""
+        query += " AND time > '{}'".format(since) if since else ""
+        # TODO: revisit this; this is a bit of a hack. Without downsampling
+        # like this, 10 hours or so the amount of metrics data will be in the
+        # mb range.  The web UI especially doesn't like this, and it gets
+        # extremely slow when we plot several mb of data in the monitoring
+        # graphs. 1 minute seems like a happy medium; still decent resolution,
+        # but low enough that the data size isn't huge after a few days. Should
+        # be revisited as I'm sure someone will eventually have a use case for
+        # higher res data.
+        #
+        # Also because of the MEAN(), Influx changes all the field names to
+        # prefix with 'mean_', bit annoying -.-
+        query += " GROUP BY time(1m) fill(none)"
 
-    try:
-        data = ic.query(query)
-        app.logger.warning("InfluxDB result: {}".format(data))
-        results = list(data)[0]
-    except InfluxDBClientError as e:
-        app.logger.error("InfluxDB error: {}".format(e))
-        return []
+        app.logger.warning("influx query: {}".format(query))
 
-    return results
+        try:
+            data = ic.query(query)
+            app.logger.warning("InfluxDB result: {}".format(data))
+            results = list(data)[0] if list(data) else []
+        except InfluxDBClientError as e:
+            app.logger.error("InfluxDB error: {}".format(e))
+            return []
 
-
-def lagopus_get_crash(jobid=None):
-    cursor = lagopus_db_cursor(dictionary=True)
-
-    query = "SELECT * FROM crashes"
-    # FIXME: sqli
-    query += " WHERE jobid = {}".format(jobid) if jobid else ""
-
-    cursor.execute(query)
-
-    result = cursor.fetchall()
-    app.logger.error("Result: {}".format(result))
-    return result
+        return results
 
 
-# ---
+LagopusJob = LagopusJob()
+LagopusCrash = LagopusCrash()
+LagopusNode = LagopusNode()
+
 # Web
-# ---
 
 
 @app.after_request
@@ -379,82 +395,100 @@ def apply_caching(response):
     return response
 
 
-# --------
-# JSON API
-# --------
+## API
+
 app.config["UPLOAD_FOLDER"] = "/tmp/"
 app.config["SECRET_KEY"] = "389afsd89j34fasd"
 
 
-@app.route("/api/nodes")
-def lagopus_api_get_nodes():
-    return lagopus_get_node()
+@api.route("/nodes")
+class Node(Resource):
+    def get(self):
+        return LagopusNode.get()
 
 
-@app.route("/api/createjob")
-def lagopus_api_create_job():
-    pass
+@api.route("/jobs")
+class JobList(Resource):
+    def get(self):
+        jobs = LagopusJob.get()
+        jobs = jobs if jobs else []
+        return jsonify(jobs)
+
+    def post(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument(
+            "file",
+            type=FileStorage,
+            location=app.config["UPLOAD_FOLDER"],
+            help="Job zip file",
+            required=True,
+        )
+        parser.add_argument("name", type=str, help="Job name", required=True)
+        parser.add_argument("driver", type=str, help="Fuzzing driver", required=True)
+        parser.add_argument(
+            "cpus", type=int, help="Number of CPUs", default=CONFIG["jobs"]["cores"]
+        )
+        parser.add_argument(
+            "memory",
+            type=int,
+            help="Memory requirement, in Mi",
+            default=CONFIG["jobs"]["memory"],
+        )
+        parser.add_argument(
+            "deadline",
+            type=int,
+            help="Fuzzing runtime, in s",
+            default=CONFIG["jobs"]["deadline"],
+        )
+        args = parser.parse_args()
+        return LagopusJob.create(**args), 201
 
 
-@app.route("/api/jobs/stats")
-def lagopus_api_get_jobs_stats():
-    jobid = None
-    since = None
-    try:
-        jobid = request.args.get("job")
-    except:
-        app.logger.warning("No job id provided for stats call")
+@api.route("/jobs/<string:job_id>")
+class Job(Resource):
+    def get(self, job_id):
+        job = LagopusJob.get(job_id)
+        return jsonify(job) if job else 404
 
-    try:
-        since = request.args.get("since")
-    except:
-        app.logger.warning("No time limit provided for stats call")
 
-    try:
-        results = lagopus_get_job_stats(jobid, since)
+@api.route("/jobs/<string:job_id>/stats")
+class JobStats(Resource):
+    def get(self, job_id):
+        parser = reqparse.RequestParser()
+        parser.add_argument(
+            "since",
+            type=str,
+            help="Time to fetch stats since, as ISO 8601 timestamp",
+            default=None,
+        )
+        args = parser.parse_args()
+        results = LagopusJob.get_stats(job_id, args["since"])
         app.logger.warning("backend result: {}".format(results))
         return jsonify(results)
-    except:
-        app.logger.warning("Couldn't get stats for job {}".format(jobid))
-        return jsonify([])
 
 
-@app.route("/api/jobs")
-def lagopus_api_get_jobs():
-    jobid = None
-    try:
-        jobid = request.args.get("job")
-    except:
-        app.logger.info("No job specified")
-    jobs = lagopus_get_job(jobid)
-    jobs = jobs if jobs else []
-    return {"data": jobs}
-
-
-@app.route("/api/crashes")
-def lagopus_api_get_crashes():
-    try:
-        jobid = request.args.get("job")
-    except:
-        app.logger.info("No job specified")
-
-    try:
-        samplename = request.args.get("sample")
-    except:
-        app.logger.info("No sample specified")
-
-    if samplename and jobid:
-        # FIXME probably terribly insecure
-        return send_file(
-            lagopus_get_crash_sample(jobid, samplename), as_attachment=True
+@api.route("/crashes")
+class CrashList(Resource):
+    def get(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument(
+            "job_id",
+            type=str,
+            help="Return crashes found by a specific job",
+            default=None,
         )
-    elif samplename:
-        # sample name with no job id is meaningless
-        pass
+        args = parser.parse_args()
+        crashes = LagopusCrash.get(*args)
+        crashes = crashes if crashes else []
+        return jsonify(crashes)
 
-    crashes = lagopus_get_crash()
-    crashes = crashes if crashes else []
-    return {"data": crashes}
+
+@api.route("/crash_sample/<string:job_id>/<string:sample_name>")
+class CrashSample(Resource):
+    def get(self, job_id, sample_name):
+        return send_file(
+            LagopusCrash.get_sample(job_id, sample_name), as_attachment=True
+        )
 
 
 # -------------
@@ -466,9 +500,9 @@ def lagopus_api_get_crashes():
 @app.route("/index.html")
 def index():
     pagename = "Dashboard"
-    jobs = lagopus_api_get_jobs()
-    jc = len(jobs["data"]) if jobs is not None else 0
-    nodes = lagopus_api_get_nodes()
+    jobs = LagopusJob.get()
+    jc = len(jobs) if jobs is not None else 0
+    nodes = LagopusNode.get()
     nc = len(nodes) if nodes is not None else 0
     return render_template(
         "index.html",
@@ -481,7 +515,7 @@ def index():
     )
 
 
-@app.route("/upload", methods=["POST"])
+# @app.route("/upload", methods=["POST"])
 def upload():
     # check if the post request has the file part
     if "file" not in request.files:
@@ -510,8 +544,14 @@ def upload():
     filename = secure_filename(file.filename)
     savepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     file.save(savepath)
-    lagopus_create_job(
-        jobname, driver, savepath, cores=cores, memory=memory, deadline=deadline
+    LagopusJob.create(
+        jobname,
+        driver,
+        savepath,
+        "nofile",
+        cpus=cores,
+        memory=memory,
+        deadline=deadline,
     )
     return redirect(url_for("index"))
 
@@ -519,12 +559,12 @@ def upload():
 @app.route("/jobs.html")
 def jobs():
     pagename = "Jobs"
-    jobid = None
+    job_id = None
     try:
-        jobid = request.args.get("job")
+        job_id = request.args.get("job_id")
     except:
         app.logger.info("No job specified")
-    return render_template("jobs.html", pagename=pagename, jobid=jobid)
+    return render_template("jobs.html", pagename=pagename, job_id=job_id)
 
 
 @app.route("/crashes.html")

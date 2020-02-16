@@ -1,4 +1,6 @@
+werkzeug==0.16
 flask
+flask-restx
 kubernetes
 mysql-connector-python
 influxdb

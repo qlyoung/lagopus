@@ -32,18 +32,21 @@
   </div>
 
   <!-- code to update jobs table via api -->
-  <script src="vendor/datatables/jquery.dataTables.min.js"></script>
+  <script src="vendor/datatables/jquery.dataTables.js"></script>
   <script src="vendor/datatables/dataTables.bootstrap4.min.js"></script>
   <script>
   $(document).ready(function() {
     $('#dataTable').DataTable( {
-        "ajax": "api/jobs",
+        "ajax": {
+            "url": "api/jobs",
+            "dataSrc": ""
+        },
         "order": [[ 6, 'asc' ]],
         "columns": [
           {
             data: 'job_id',
             render: function(data, type, row, meta) {
-                return '<a href="jobs.html?job=' + encodeURIComponent(data) + '">'+data+'</a>';
+                return '<a href="jobs.html?job_id=' + encodeURIComponent(data) + '">'+data+'</a>';
             }
           },
           { data: 'status' },
@@ -55,7 +58,7 @@
             data: 'create_time',
             render: function(data, type, row, meta) {
                 return moment(data);
-	    }
+            }
           },
         ]
     } );

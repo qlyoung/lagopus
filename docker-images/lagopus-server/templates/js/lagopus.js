@@ -21,7 +21,7 @@ function lagopus_update_chart(chart, jobid) {
         }
         $.ajax({
             type: "get",
-            url: "api/jobs/stats?job=" + jobid + (since != null ? "&since=" + since : ''),
+            url: "api/jobs/" + jobid + "/stats"  + (since != null ? "?since=" + since : ''),
             success: function(data) {
                 console.log(data);
                 if (data.length == 0)

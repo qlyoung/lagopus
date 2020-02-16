@@ -119,7 +119,7 @@ $(document).on('change', '.custom-file-input', function (event) {
                           type: "get",
                           url: "api/jobs",
                           success:function(data) {
-                              let active = data['data'].filter(function(job) {
+                              let active = data.filter(function(job) {
                                   return (job.status == "Incomplete");
                               });
                               $("#jobcount").text(active.length);
