@@ -51,9 +51,11 @@ for file in ./fuzz-*.log; do
 	unset IFS
 
 	TOTAL_PATHS=$((TOTAL_PATHS + STATS[0]))
-	# exec/s
 	TOTAL_EPS=$((TOTAL_EPS + STATS[4]))
 done
+
+TOTAL_CRASHES=$(find . -maxdepth 1 -type f \( -name "crash-*" -o -name "leak-*" \) | wc -l)
+TOTAL_HANGS=$(find . -maxdepth 1 -type f -name "timeout-*" | wc -l)
 
 echo "Pushing to database $INFLUX_DATABASE"
 
