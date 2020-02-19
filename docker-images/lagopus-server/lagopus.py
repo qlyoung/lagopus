@@ -503,6 +503,7 @@ class CrashList(Resource):
             type=str,
             help="Return crashes found by a specific job",
             default=None,
+            required=False,
         )
         args = parser.parse_args()
         crashes = LagopusCrash.get(*args)
@@ -510,7 +511,7 @@ class CrashList(Resource):
         return jsonify(crashes)
 
 
-@api.route("/crash_sample/<string:job_id>/<string:sample_name>")
+@api.route("/crashes/<string:job_id>/samples/<string:sample_name>")
 class CrashSample(Resource):
     def get(self, job_id, sample_name):
         return send_file(

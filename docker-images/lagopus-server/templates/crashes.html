@@ -57,7 +57,7 @@ $(document).ready(function() {
         {
           data: 'sample_path',
           render: function(data, type, row, meta) {
-              return '<a href="api/crashes?job='+encodeURIComponent(row['job_id'])+'&sample='+encodeURIComponent(data)+'">Download</a>';
+              return '<a href="api/crashes/'+encodeURIComponent(row['job_id'])+'/samples/'+encodeURIComponent(data)+'">Download</a>';
           }
         },
         { data: 'type' },
