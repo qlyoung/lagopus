@@ -52,6 +52,7 @@ for file in ./fuzz-*.log; do
 
 	TOTAL_PATHS=$((TOTAL_PATHS + STATS[0]))
 	TOTAL_EPS=$((TOTAL_EPS + STATS[4]))
+	ALIVE_CNT=$((ALIVE_CNT + 1))
 done
 
 TOTAL_CRASHES=$(find . -maxdepth 1 -type f \( -name "crash-*" -o -name "leak-*" \) | wc -l)
