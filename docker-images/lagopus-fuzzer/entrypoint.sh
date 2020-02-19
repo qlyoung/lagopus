@@ -95,7 +95,7 @@ if [ "$DRIVER" == "afl" ]; then
   afl-multicore -s 1 -v -c $AFLMCC start $CORES
   COUNTFUZZER_CMD="pgrep -c afl-fuzz"
 elif [ "$DRIVER" == "libFuzzer" ]; then
-  ./target -max_total_time=$FUZZER_TIMEOUT -detect_leaks=0 -rss_limit_mb=0 -jobs=$CORES -workers=$CORES $CORPUS &
+  ./target -max_total_time=$FUZZER_TIMEOUT -rss_limit_mb=0 -jobs=$CORES -workers=$CORES $CORPUS &
   COUNTFUZZER_CMD="pgrep -fc rss_limit_mb"
 else
   printf "Fuzzing driver '%s' unsupported; exiting\n" "$DRIVER"
@@ -238,7 +238,6 @@ elif [ "$DRIVER" == "libFuzzer" ]; then
 
   cp -r $RESULT/* minimized/
   mv minimized jobresults/corpus/
-
 fi
 
 # upload results
