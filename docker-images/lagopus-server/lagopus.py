@@ -65,7 +65,7 @@ def lagopus_sanitycheck():
     """
     for v in CONFIG["dirs"].values():
         if not os.path.exists(v):
-            app.logger.error("Creating '{}'".format(v))
+            app.logger.info("Creating directory '{}'".format(v))
             pathlib.Path(v).mkdir(parents=True, exist_ok=True)
 
 
@@ -112,7 +112,7 @@ def lagopus_k8s_create_job(
     pathlib.Path(jobdir).mkdir(parents=True, exist_ok=True)
     st = os.stat(jobdir)
     os.chmod(jobdir, st.st_mode | stat.S_IWOTH | stat.S_IXOTH | stat.S_IROTH)
-    app.logger.error("Job directory: {}".format(jobdir))
+    app.logger.info("Lagopus job directory: {}".format(jobdir))
     jobconf = {}
     jobconf["jobname"] = job_id
     jobconf["jobid"] = job_id
@@ -134,9 +134,9 @@ def lagopus_k8s_create_job(
             jobyaml["metadata"]["namespace"], jobyaml, pretty=True
         )
     except ApiException as e:
-        app.logger.error("API exception: {}".format(e))
+        app.logger.error("k8s API exception: {}".format(e))
     finally:
-        app.logger.error("API response:\n{}".format(response))
+        app.logger.error("k8s API response:\n{}".format(response))
 
     return response
 
@@ -169,8 +169,6 @@ def lagopus_k8s_get_jobs(job_id=None, namespace="default"):
         onejob["pods"] = podnames
         onejob["starttime"] = str(job.status.start_time)
         onejob["jobdir"] = "jobs/" + job.metadata.name
-        # app.logger.error("\tPods:")
-        #     app.logger.error("\t- {}\t[{}]".format(pod.metadata.name, pod.status.phase))
         jobs.append(onejob)
     return jobs
 
@@ -187,7 +185,7 @@ def lagopus_k8s_get_nodes():
         }
         nodes.append(onenode)
 
-    app.logger.warning("Nodes: {}".format(nodes))
+    app.logger.info("k8s Nodes: {}".format(nodes))
     return nodes
 
 
@@ -210,7 +208,7 @@ def lagopus_db_connect():
 
     try:
         cnx = mysql.connector.connect(**CONFIG["database"]["connection"])
-        app.logger.error("Initialized database.")
+        app.logger.info("Initialized database.")
     except mysql.connector.Error as err:
         app.logger.error("Couldn't connect to MySQL: {}".format(err))
 
@@ -257,25 +255,24 @@ class LagopusCrash(object):
         query += " WHERE job_id = {}".format(job_id) if job_id else ""
 
         cursor.execute(query)
-
         result = cursor.fetchall()
-        app.logger.error("Result: {}".format(result))
         return result
 
     def get_sample(self, job_id, sample_name):
         jobdir = CONFIG["dirs"]["jobs"] + "/" + job_id
         jobresult_file = jobdir + "/jobresults.zip"
         if not os.path.exists(jobresult_file):
-            app.logger.warning("No file '{}'".format(jobresult_file))
+            app.logger.warning(
+                "Job '{}': No job results file '{}'".format(job_id, jobresult_file)
+            )
             return None
 
         zf = ZipFile(jobresult_file)
-        app.logger.warning(
-            "Looking for '{}' in '{}'".format(sample_name, jobresult_file)
-        )
         samples = list(filter(lambda x: sample_name in x, zf.namelist()))
         if not samples:
-            app.logger.warning("Sample '{}' not found")
+            app.logger.warning(
+                "Job '{}': Sample '{}' not found".format(job_id, sample_name)
+            )
             return None
 
         # FIXME: this is crap
@@ -303,7 +300,6 @@ class LagopusJob(object):
         )
         # Update with statuses from k8s
         for job in k8s_jobs:
-            app.logger.warning(job)
             cursor.execute(
                 "UPDATE jobs SET status = %(status)s WHERE job_id = %(job_id)s",
                 {"status": job["status"], "job_id": job["name"]},
@@ -318,7 +314,6 @@ class LagopusJob(object):
         else:
             cursor.execute("SELECT * FROM jobs")
         result = cursor.fetchall()
-        app.logger.error("Result: {}".format(result))
 
         if job_id and result:
             return result[0]
@@ -366,7 +361,6 @@ class LagopusJob(object):
 
     def get_stats(self, job_id, since):
         ic = InfluxDBClient(database="lagopus")
-        app.logger.error(">>> Since: {}".format(since))
 
         query = "select MEAN(*) from jobs"
         query += " where job_id = '{}'".format(job_id) if job_id else ""
@@ -384,11 +378,11 @@ class LagopusJob(object):
         # prefix with 'mean_', bit annoying -.-
         query += " GROUP BY time(1m) fill(none)"
 
-        app.logger.warning("influx query: {}".format(query))
+        app.logger.info("Executing InfluxDB query: {}".format(query))
 
         try:
             data = ic.query(query)
-            app.logger.warning("InfluxDB result: {}".format(data))
+            app.logger.info("InfluxDB result: {}".format(data))
             results = list(data)[0] if list(data) else []
         except InfluxDBClientError as e:
             app.logger.error("InfluxDB error: {}".format(e))
@@ -433,7 +427,7 @@ class JobList(Resource):
         return jsonify(jobs)
 
     def post(self):
-        app.logger.info(".json: {}".format(request.json))
+        app.logger.info("Rx'd new job json: {}".format(request.json))
 
         parser = reqparse.RequestParser(bundle_errors=True)
         parser.add_argument(
@@ -456,7 +450,6 @@ class JobList(Resource):
             help="Fuzzing runtime, in s",
             default=CONFIG["jobs"]["deadline"],
         )
-        app.logger.warning("About to parse args")
         try:
             args = parser.parse_args()
         except Exception as e:
@@ -464,7 +457,7 @@ class JobList(Resource):
             return {"error": "Invalid job specification"}, 400
 
         job = LagopusJob.create(**args)
-        app.logger.warning("Created job {}".format(job))
+        app.logger.info("Created job {}".format(job))
 
         response = jsonify(job)
         response.status_code = 201
@@ -490,7 +483,6 @@ class JobStats(Resource):
         )
         args = parser.parse_args()
         results = LagopusJob.get_stats(job_id, args["since"])
-        app.logger.warning("backend result: {}".format(results))
         return jsonify(results)
 
 
@@ -546,11 +538,7 @@ def index():
 @app.route("/jobs.html")
 def jobs():
     pagename = "Jobs"
-    job_id = None
-    try:
-        job_id = request.args.get("job_id")
-    except:
-        app.logger.info("No job specified")
+    job_id = request.args.get("job_id", default=None)
     return render_template("jobs.html", pagename=pagename, job_id=job_id)
 
 
