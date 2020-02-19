@@ -539,7 +539,8 @@ def index():
 def jobs():
     pagename = "Jobs"
     job_id = request.args.get("job_id", default=None)
-    return render_template("jobs.html", pagename=pagename, job_id=job_id)
+    job = LagopusJob.get(job_id) if job_id else None
+    return render_template("jobs.html", pagename=pagename, job=job)
 
 
 @app.route("/crashes.html")
