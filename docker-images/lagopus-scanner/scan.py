@@ -6,6 +6,7 @@ import sqlite3
 import time
 import pprint
 import argparse
+import hashlib
 from pathlib import Path
 from zipfile import ZipFile
 from collections import defaultdict
@@ -55,13 +56,13 @@ def process_jobresults(jobid, jobresult_zip, crashdb, cnx):
                 query,
                 (
                     jobid,
-                    entry["Type"],
-                    entry["Is_Security_Issue"],
-                    entry["Is_Crash"],
-                    entry["Sample"],
-                    entry["Backtrace"],
-                    entry["Hash"],
-                    entry["Return_Code"],
+                    entry["type"],
+                    entry["is_security_issue"],
+                    entry["is_crash"],
+                    entry["sample"],
+                    entry["backtrace"],
+                    entry["hash"],
+                    entry["return_code"],
                 ),
             )
         except mysql.connector.errors.IntegrityError as err:
@@ -84,41 +85,26 @@ def process_jobresults(jobid, jobresult_zip, crashdb, cnx):
     cdbcon = sqlite3.connect(crashdb)
     cdbcon.row_factory = dict_factory
     cdbcur = cdbcon.cursor()
-    result = cdbcur.execute("SELECT * FROM Data")
+    result = cdbcur.execute("SELECT * FROM analysis")
     if not result:
         print("Crash database empty, nothing to export")
         return
 
     result = [dict(row) for row in result.fetchall()]
 
-    # k, insert into mysql
-    for entry in result:
-        # TODO - figure out why real crashes are classed as INVALID
-        # if entry["Classification"] == "INVALID":
-        #     print("Classified as INVALID, skipping")
-        #     continue
-
+    # insert into mysql
+    for analysis in result:
         # pull backtrace, if any, into dictionary
-        print("Exporting entry: {}".format(entry))
-        analysis = cdbcur.execute(
-            "SELECT * FROM analysis WHERE sample = '{}'".format(entry["Sample"])
-        )
+        print("Exporting entry: {}".format(analysis))
 
-        if analysis:
-            analysis = analysis.fetchone()
-
-        if analysis:
-            entry["Type"] = analysis["type"]
-            entry["Is_Crash"] = bool(analysis["is_crash"])
-            entry["Is_Security_Issue"] = bool(analysis["is_security_issue"])
-            entry["Backtrace"] = analysis["backtrace"]
-            entry["Return_Code"] = analysis["return_code"]
-            # unused
-            entry["Should_Ignore"] = bool(analysis["should_ignore"])
-            entry["Output"] = analysis["output"]
+        analysis["hash"] = hashlib.md5(bytes(analysis["backtrace"], encoding="utf8")).hexdigest()
+        analysis["is_crash"] = bool(analysis["is_crash"])
+        analysis["is_security_issue"] = bool(analysis["is_security_issue"])
+        # unused
+        analysis["should_ignore"] = analysis["should_ignore"]
 
         if cnx:
-            export_to_mysql(entry, cnx)
+            export_to_mysql(analysis, cnx)
 
     cdbcon.close()
 
