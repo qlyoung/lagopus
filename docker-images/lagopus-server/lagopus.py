@@ -4,6 +4,8 @@
 # MIT License
 
 import os
+import base64
+import tempfile
 
 from flask import Flask, Blueprint
 from flask import render_template
@@ -14,7 +16,6 @@ from flask import flash
 from flask import redirect, url_for
 from flask import jsonify
 from flask_restx import Resource, Api, reqparse
-from werkzeug import FileStorage
 from werkzeug.utils import secure_filename
 
 from influxdb import InfluxDBClient
@@ -319,27 +320,44 @@ class LagopusJob(object):
         result = cursor.fetchall()
         app.logger.error("Result: {}".format(result))
 
-        return result
+        if job_id and result:
+            return result[0]
+        else:
+            return result
 
-    def create(self, job_id, name, driver, file, deadline, cpus, memory):
+    def create(self, job_name, driver, target, deadline, cpus, memory):
         # generate unique job id
         now = datetime.datetime.now()
-        job_id = lagopus_job_id(name, driver, now)
+        job_id = lagopus_job_id(job_name, driver, now)
 
         status = "Created"
         create_timestamp = now.strftime("%Y-%m-%d %H-%M-%S")
+
+        filename = secure_filename(job_id + ".zip")
+        savepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        with open(savepath, "wb") as tgt:
+            tgt.write(base64.b64decode(target))
 
         # insert new job into db
         cursor = lagopus_db_cursor()
         cursor.execute(
             "INSERT INTO jobs (job_id, status, driver, target, cores, memory, deadline, create_time) VALUES ('{}', '{}', '{}', '{}', {}, {}, {}, '{}')".format(
-                job_id, status, driver, file, cpus, memory, deadline, create_timestamp
+                job_id,
+                status,
+                driver,
+                savepath,
+                cpus,
+                memory,
+                deadline,
+                create_timestamp,
             )
         )
         cursor.close()
 
         # create in k8s
-        lagopus_k8s_create_job(job_id, driver, file, cpus, memory, deadline)
+        lagopus_k8s_create_job(job_id, driver, savepath, cpus, memory, deadline)
+
+        return self.get(job_id)
 
     def delete(self, job_id):
         pass
@@ -397,7 +415,7 @@ def apply_caching(response):
 
 ## API
 
-app.config["UPLOAD_FOLDER"] = "/tmp/"
+app.config["UPLOAD_FOLDER"] = tempfile.mkdtemp()
 app.config["SECRET_KEY"] = "389afsd89j34fasd"
 
 
@@ -415,33 +433,42 @@ class JobList(Resource):
         return jsonify(jobs)
 
     def post(self):
-        parser = reqparse.RequestParser()
+        app.logger.info(".json: {}".format(request.json))
+
+        parser = reqparse.RequestParser(bundle_errors=True)
         parser.add_argument(
-            "file",
-            type=FileStorage,
-            location=app.config["UPLOAD_FOLDER"],
-            help="Job zip file",
-            required=True,
+            "target", type=str, help="base64 encoded job zip file", required=True,
         )
-        parser.add_argument("name", type=str, help="Job name", required=True)
+        parser.add_argument("job_name", type=str, help="Job name", required=True)
         parser.add_argument("driver", type=str, help="Fuzzing driver", required=True)
         parser.add_argument(
-            "cpus", type=int, help="Number of CPUs", default=CONFIG["jobs"]["cores"]
+            "cpus", type=str, help="Number of CPUs", default=CONFIG["jobs"]["cores"],
         )
         parser.add_argument(
             "memory",
-            type=int,
+            type=str,
             help="Memory requirement, in Mi",
             default=CONFIG["jobs"]["memory"],
         )
         parser.add_argument(
             "deadline",
-            type=int,
+            type=str,
             help="Fuzzing runtime, in s",
             default=CONFIG["jobs"]["deadline"],
         )
-        args = parser.parse_args()
-        return LagopusJob.create(**args), 201
+        app.logger.warning("About to parse args")
+        try:
+            args = parser.parse_args()
+        except Exception as e:
+            app.logger.error("Encountered error parsing arguments: {}".format(str(e)))
+            return {"error": "Invalid job specification"}, 400
+
+        job = LagopusJob.create(**args)
+        app.logger.warning("Created job {}".format(job))
+
+        response = jsonify(job)
+        response.status_code = 201
+        return response
 
 
 @api.route("/jobs/<string:job_id>")
@@ -513,47 +540,6 @@ def index():
         jobcount=jc,
         nodecount=nc,
     )
-
-
-# @app.route("/upload", methods=["POST"])
-def upload():
-    # check if the post request has the file part
-    if "file" not in request.files:
-        return "No file part"
-    file = request.files["file"]
-    # if user does not select file, browser also
-    # submit an empty part without filename
-    if not file or file.filename == "":
-        flash("No selected file")
-        return redirect(request.url)
-
-    jobname = request.form.get("jobname", "")
-    if jobname == "":
-        flash("No job name")
-        return redirect(request.url)
-
-    driver = request.form.get("driver", "")
-    if driver == "":
-        flash("No driver specified")
-        return redirect(request.url)
-
-    cores = int(request.form.get("cores", CONFIG["jobs"]["cores"]))
-    memory = int(request.form.get("memory", CONFIG["jobs"]["memory"]))
-    deadline = int(request.form.get("deadline", CONFIG["jobs"]["deadline"]))
-
-    filename = secure_filename(file.filename)
-    savepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-    file.save(savepath)
-    LagopusJob.create(
-        jobname,
-        driver,
-        savepath,
-        "nofile",
-        cpus=cores,
-        memory=memory,
-        deadline=deadline,
-    )
-    return redirect(url_for("index"))
 
 
 @app.route("/jobs.html")
