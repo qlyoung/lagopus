@@ -45,16 +45,15 @@ TOTAL_HRS=0
 CURRENT_PATH=0
 AVG_EPS=0
 
-IFS=$'\n'
-STATS=($(grep 'cov' ./fuzz-0.log | sed -e 's/^.*cov/cov/g' | tail -n 1 | tr -s ' ' | cut -d' ' -f2,4,6,8,10,12 | tr -s ' ' '\n' | sed -e 's/[A-Z][a-z]//g'))
-unset IFS
+for file in ./fuzz-*.log; do
+	IFS=$'\n'
+	STATS=($(grep 'cov' "$file" | sed -e 's/^.*cov/cov/g' | tail -n 1 | tr -s ' ' | cut -d' ' -f2,4,6,8,10,12 | tr -s ' ' '\n' | sed -e 's/[A-Z][a-z]//g'))
+	unset IFS
 
-printf "Array\n"
-printf '%s\n' "${STATS[@]}"
-
-TOTAL_PATHS=${STATS[0]}
-# exec/s
-TOTAL_EPS=${STATS[4]}
+	TOTAL_PATHS=$((TOTAL_PATHS + STATS[0]))
+	# exec/s
+	TOTAL_EPS=$((TOTAL_EPS + STATS[4]))
+done
 
 echo "Pushing to database $INFLUX_DATABASE"
 
