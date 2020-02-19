@@ -3,10 +3,10 @@
 
 <!-- Page heading -->
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
-  <h1 class="h3 mb-0 text-gray-800">{{ job_id or 'Overview' }}</h1>
+  <h1 class="h3 mb-0 text-gray-800">{{ job["job_id"] or 'Overview' }}</h1>
 </div>
 
-{% if jobid == None %}
+{% if job == None %}
   <!-- Job table -->
   {% include "jobtable.html" %}
 {% else %}
@@ -20,23 +20,43 @@
         <div class="card-body">
           <div class="container">
             <div class="row">
-              <div class="col"><strong>Crashes:</strong> <p id="summary_crashes">-</p></div>
-              <div class="col"><strong>Paths:</strong> <p id="summary_paths">-</p></div>
+              <div class="col"><strong>Status</strong> <p><span id="summary_status" class="badge badge-primary">job.status</span></p></div>
+              <div class="col"><strong>Crashes</strong> <p id="summary_crashes">-</p></div>
+              <div class="col"><strong>Hangs</strong> <p id="summary_hangs">-</p></div>
+              <div class="col"><strong>Live fuzzers</strong> <p id="summary_live_fuzzers">-</p></div>
+              <div class="col"><strong>Paths</strong> <p id="summary_paths">-</p></div>
+              <div class="col"><strong>Total Execs</strong> <p id="summary_execs">-</p></div>
             </div>
           </div>
           <script>
             function update_summary() {
                 $.ajax({
                     type: "get",
-                    url: "api/jobs/{{ job_id }}/stats",
+                    url: "api/jobs/{{ job["job_id"] }}",
                     success: function(data) {
-                        if (data.length == 0)
-                            return;
-                        $("#summary_crashes").text(data[data.length - 1]['mean_crashes']);
-                        $("#summary_paths").text(data[data.length - 1]['mean_total_paths']);
+                        $("#summary_status").text(data["status"]);
+                        if (data["status"] == "Incomplete") {
+                            $.ajax({
+                                type: "get",
+                                url: "api/jobs/{{ job["job_id"] }}/stats",
+                                success: function(data) {
+                                    if (data.length == 0)
+                                        return;
+                                    $("#summary_crashes").text(data[data.length - 1]['mean_crashes']);
+                                    $("#summary_hangs").text(data[data.length - 1]['mean_hangs']);
+                                    $("#summary_live_fuzzers").text(data[data.length - 1]['mean_alive']);
+                                    $("#summary_paths").text(data[data.length - 1]['mean_total_paths']);
+                                    $("#summary_execs").text(data[data.length - 1]['mean_execs']);
+                                }
+                            });
+                            setTimeout(update_summary, 15000);
+                        }
+                        else if (data["status"] == "Complete") {
+                            $("#summary_status").removeClass("badge-primary");
+                            $("#summary_status").addClass("badge-success");
+                        }
                     }
                 });
-                setTimeout(update_summary, 15000);
             }
             update_summary();
           </script>
@@ -73,8 +93,8 @@
   <!-- graph job stats -->
   <script src="js/lagopus.js"></script>
   <script>
-  lagopus_job_aflstat($("#statChart"), '{{ job_id }}');
-  lagopus_job_aflperf($("#perfChart"), '{{ job_id }}');
+  lagopus_job_aflstat($("#statChart"), '{{ job["job_id"] }}');
+  lagopus_job_aflperf($("#perfChart"), '{{ job["job_id"] }}');
   </script>
 {% endif %}
 
