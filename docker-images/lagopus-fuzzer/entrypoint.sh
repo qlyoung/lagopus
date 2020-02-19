@@ -158,46 +158,72 @@ mkdir jobresults/corpus     # for generated corpus
 mkdir jobresults/crashes    # for bug-triggering corpus inputs
 mkdir jobresults/misc       # for miscellaneous job foo
 
+# Collect and analyze crashes
+sqlite3 ./jobresults/crashes/crashes.db "create table analysis (sample TEXT PRIMARY KEY, type TEXT, is_crash INTEGER, is_security_issue INTEGER, should_ignore INTEGER, backtrace TEXT, output TEXT, return_code INTEGER);"
+
 if [ "$DRIVER" == "afl" ]; then
   # in the afl case, afl uses /jobdata/results as its sync dir
 
-  # Collect and deduplicate crashes, with some analysis
-  printf "Analyzing crashes...\n"
-  afl-collect -d ./jobresults/crashes/crashes.db -e gdb_script -j $CORES $RESULT ./jobresults/crashes/ -- $TARGET
+  # afl-collect will do some deduplication for us; it also has the ability to
+  # do crash analysis via gdb exploitable, but in practice this doesn't work
+  # very well - especially on *SAN binaries, which it sees as exiting cleanly
+  # because stack dumping is performed by *SAN itself - so it's turned off in
+  # favor of CF's implementation
+  afl-collect -j $CORES $RESULT ./jobresults/crashes/ -- $TARGET
+elif [ "$DRIVER" == "libFuzzer" ]; then
+  # in the libFuzzer case, corpus data is written to /jobdata/results
 
-  # Collect backtraces
-  sqlite3 ./jobresults/crashes/crashes.db "create table analysis (sample TEXT PRIMARY KEY, type TEXT, is_crash INTEGER, is_security_issue INTEGER, should_ignore INTEGER, backtrace TEXT, output TEXT, return_code INTEGER);"
+  # presently libFuzzer kills itself when it finds a bug, and just writes a
+  # normal corpus file but prefixed with the type of bug it found, into the
+  # current directory
+  cp -r ./crash* jobresults/crashes/
+  cp -r ./leak* jobresults/crashes/
+  cp -r ./*slow* jobresults/crashes/
 
-  for file in ./jobresults/crashes/*; do
-    fname=$(basename "$file")
-    if [ "$(basename "$file")" == "gdb_script" ] || [ "$(basename "$file")" == "crashes.db" ]; then continue; fi
+  # logs - need to be copied before minimize, otherwise lf will overwrite them
+  cp fuzz*.log jobresults/misc/
+fi
 
-    # run test case and collect output
+for file in ./jobresults/crashes/*; do
+  fname=$(basename "$file")
+  if [ "$(basename "$file")" == "gdb_script" ] || [ "$(basename "$file")" == "crashes.db" ]; then continue; fi
+
+  # run test case and collect output
+  if [ "$DRIVER" == "afl" ]; then
+    # FIXME: need to parse & use the actual execution line from target.conf
     $TARGET < "$file" &> output.txt
     EC=$?
+  elif [ "$DRIVER" == "libFuzzer" ]; then
+    # FIXME: need to use the same invocation format as the fuzz run
+    $TARGET "$file" &> output.txt
+    EC=$?
+  fi
 
-    # Perform some more analysis with ClusterFuzz's crash analysis tooling
-    ANALYSIS_JSON=$(/analyzer/analyzer.py --outputfile output.txt --exitcode $EC)
+  # Perform some more analysis with ClusterFuzz's crash analysis tooling
+  ANALYSIS_JSON=$(/analyzer/analyzer.py --outputfile output.txt --exitcode $EC)
 
-    DB_SAMPLE="$fname"
-    DB_TYPE="$(echo "$ANALYSIS_JSON" | jq -r .type)"
-    DB_IS_CRASH="$(echo "$ANALYSIS_JSON" | jq .is_crash | sed -e 's/true/1/' -e 's/false/0/')"
-    DB_IS_SECURITY_ISSUE="$(echo "$ANALYSIS_JSON" | jq .is_security_issue | sed -e 's/true/1/' -e 's/false/0/')"
-    DB_SHOULD_IGNORE="$(echo "$ANALYSIS_JSON" | jq .should_ignore | sed -e 's/true/1/' -e 's/false/0/')"
-    DB_BACKTRACE="$(echo "$ANALYSIS_JSON" | jq -r .stacktrace)"
-    DB_OUTPUT="$(echo "$ANALYSIS_JSON" | jq -r .output)"
-    DB_RC="$(echo "$ANALYSIS_JSON" | jq -r .return_code)"
+  DB_SAMPLE="$fname"
+  DB_TYPE="$(echo "$ANALYSIS_JSON" | jq -r .type)"
+  DB_IS_CRASH="$(echo "$ANALYSIS_JSON" | jq .is_crash | sed -e 's/true/1/' -e 's/false/0/')"
+  DB_IS_SECURITY_ISSUE="$(echo "$ANALYSIS_JSON" | jq .is_security_issue | sed -e 's/true/1/' -e 's/false/0/')"
+  DB_SHOULD_IGNORE="$(echo "$ANALYSIS_JSON" | jq .should_ignore | sed -e 's/true/1/' -e 's/false/0/')"
+  DB_BACKTRACE="$(echo "$ANALYSIS_JSON" | jq -r .stacktrace)"
+  DB_OUTPUT="$(echo "$ANALYSIS_JSON" | jq -r .output)"
+  DB_RC="$(echo "$ANALYSIS_JSON" | jq -r .return_code)"
 
-    # we do what has to be done, not because we wish to, but because we must
-    python3 - <<-EOF
+  # we do what has to be done, not because we wish to, but because we must
+  python3 - <<-EOF
 	import sqlite3 as sq; c = sq.connect("jobresults/crashes/crashes.db");
 	c.execute("insert into analysis (sample, type, is_crash, is_security_issue, should_ignore, backtrace, output, return_code) values (?, ?, ?, ?, ?, ?, ?, ?)", ("""$DB_SAMPLE""", """$DB_TYPE""", $DB_IS_CRASH, $DB_IS_SECURITY_ISSUE, $DB_SHOULD_IGNORE, """$DB_BACKTRACE""", """$DB_OUTPUT""", $DB_RC))
 	c.commit(); c.close();
 	EOF
-  done
+done
 
-  # Minimize corpus
-  printf "Minimizing corpus...\n"
+# Minimize corpus
+printf "Minimizing corpus...\n"
+
+if [ "$DRIVER" == "afl" ]; then
+  # TODO: afl-tmin is turned off because it takes so long
   afl-minimize -c ./jobresults/corpus --cmin --cmin-mem-limit=none -j $CORES $RESULT -- $TARGET
 
   # FIXME: these will overwrite each other in the copy
@@ -205,23 +231,6 @@ if [ "$DRIVER" == "afl" ]; then
   find $RESULT -print0 -type f -name 'fuzzer_stats' | xargs cp -t jobresults/misc
 
 elif [ "$DRIVER" == "libFuzzer" ]; then
-  # in the libFuzzer case, corpus data is written to /jobdata/results
-  printf "Analyzing crashes...\n"
-
-  # presently libFuzzer kills itself when it finds a bug, and just writes a
-  # normal corpus file but prefixed with the type of bug it found, into the
-  # current directory
-  cp -r $RESULT/crash* jobresults/crashes/
-  cp -r $RESULT/leak* jobresults/crashes/
-  cp -r $RESULT/*slow* jobresults/crashes/
-  # logs - need to be copied before minimize, otherwise lf will overwrite them
-  cp fuzz*.log jobresults/misc/
-
-  # TODO
-
-  printf "Minimizing corpus...\n"
-
-
   # afl-tmin type functionality is available via -minimize_crash, which might
   # be useful during the analysis step or here.
   mkdir minimized
