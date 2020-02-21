@@ -1,5 +1,5 @@
     <!-- Sidebar -->
-    <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
+    <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar" role="tablist" aria-orientation="vertical">
 
       <!-- Sidebar - Brand -->
       <a class="sidebar-brand d-flex align-items-center justify-content-center" href="index.html">
@@ -13,7 +13,7 @@
       <hr class="sidebar-divider my-0">
 
       <!-- Nav Item - Dashboard -->
-      <li class="nav-item active">
+      <li class="nav-item {% if request.path == "/index.html" %}active{% endif %}">
         <a class="nav-link" href="index.html">
           <i class="fas fa-fw fa-tachometer-alt"></i>
           <span>Dashboard</span></a>
@@ -36,14 +36,14 @@
       <!- -->
 
       <!-- Nav Item - Crashes -->
-      <li class="nav-item">
+      <li class="nav-item {% if request.path == "/crashes.html" %}active{% endif %}">
         <a class="nav-link" href="crashes.html">
           <i class="fas fa-fw fa-cog"></i>
           <span>Crashes</span></a>
       </li>
 
       <!-- Nav Item - Corpuses -->
-      <li class="nav-item">
+      <li class="nav-item {% if request.path == "/corpuses.html" %}active{% endif %}">
         <a class="nav-link" href="corpuses.html">
           <i class="fas fa-fw fa-cog"></i>
           <span>Corpuses</span></a>
@@ -57,7 +57,7 @@
         K8S
       </div>
 
-      <!-- Nav Item - Tables -->
+      <!-- Nav Item - Cluster -->
       <li class="nav-item">
         <a class="nav-link" href="404.html">
           <i class="fas fa-fw fa-table"></i>
