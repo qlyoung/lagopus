@@ -60,6 +60,17 @@ cd "$WORKDIR" || exit 1
 
 unzip target.zip
 
+PROVISIONSCRIPT="provision.sh"
+# Run provisioning script
+echo "Looking for provisioning script..."
+if [ -f "$PROVISIONSCRIPT" ]; then
+  echo "Running provision.sh"
+  chmod +x "$PROVISIONSCRIPT"
+  ./$PROVISIONSCRIPT
+else
+  echo "provision.sh not found"
+fi
+
 TARGET="./target"
 CORPUS="./corpus"
 RESULT="./results"
