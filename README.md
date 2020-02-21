@@ -468,3 +468,8 @@ debugging.
 
 - Jobs could be distributed across nodes by using the NFS share as a source for
   new corpus inputs and periodically synchronizing?
+
+- Collecting `perf stat` output for fuzzing tasks into InfluxDB could be cool.
+  However, perf inside containers is still a pita, for the same reasons that
+  make procfs a pain. Brendan Gregg touched on this in his container perf talk,
+  https://www.youtube.com/watch?v=bK9A5ODIgac @ 33m.
