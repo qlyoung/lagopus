@@ -50,7 +50,7 @@ def process_jobresults(jobid, jobresult_zip, crashdb, cnx):
 
         entry = defaultdict(lambda: None, entry)
 
-        query = "INSERT INTO crashes (job_id, type, is_security_issue, is_crash, sample_path, backtrace, backtrace_hash, return_code) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+        query = "INSERT INTO crashes (job_id, type, is_security_issue, is_crash, sample_path, backtrace, backtrace_hash, return_code, create_time) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())"
         try:
             mysql_cursor.execute(
                 query,

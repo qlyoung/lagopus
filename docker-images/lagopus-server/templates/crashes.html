@@ -47,6 +47,7 @@ $(document).ready(function() {
           "url": "api/crashes",
           "dataSrc": ""
       },
+      "order": [[ 6, 'desc' ]],
       "columns": [
         {
           data: 'job_id',
@@ -69,7 +70,14 @@ $(document).ready(function() {
               return '<details><summary>Click for stack trace</summary><code style="display:block;white-space:pre-wrap;font-size:0.6em">'+data+'</code></details>';
           }
         },
-        { data: 'return_code' }
+        { data: 'return_code' },
+        {
+          data: 'create_time',
+          visible: false,
+          render: function(data, type, row, meta) {
+              return type === 'sort' ? moment(data).unix() : moment(data);
+          }
+        }
       ]
   } );
 } );
