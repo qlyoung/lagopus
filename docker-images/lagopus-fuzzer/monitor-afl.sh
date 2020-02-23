@@ -117,8 +117,8 @@ echo "Pushing to database $INFLUX_DATABASE"
 
 # Push to InfluxDB
 TAGS="job_id=$JOB_ID"
-TAGS="$TAGS,target=\"$(basename "$(echo "$command_line" | sed -n 's/^.*-- //p')")\""
-TAGS="$TAGS,host=\"$(hostname)\""
+TAGS="$TAGS,target=$(basename "$(echo "$command_line" | sed -n 's/^.*-- //p')" | sed 's/\([ ,=]\)/\\\1/g')"
+TAGS="$TAGS,host=$(hostname)"
 
 FIELDS="alive=$ALIVE_CNT"
 FIELDS="$FIELDS,crashes=$TOTAL_CRASHES"
