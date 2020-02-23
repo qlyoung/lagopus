@@ -55,10 +55,9 @@
           {
             data: 'create_time',
             render: function(data, type, row, meta) {
-		console.log(data);
                 return type === 'sort' ? moment(data).unix() : moment(data);
             }
-          },
+          }
         ]
     } );
   } );
