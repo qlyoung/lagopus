@@ -19,6 +19,7 @@ CREATE TABLE `crashes` (
     `backtrace` longtext NOT NULL,
     `backtrace_hash` char(65),  # two md5s plus a period
     `return_code` int(11),
+    `create_time` timestamp,
     PRIMARY KEY (`job_id`, `backtrace_hash`)
   ) ENGINE=InnoDB;
 
