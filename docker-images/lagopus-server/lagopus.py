@@ -506,9 +506,11 @@ class CrashList(Resource):
 @api.route("/crashes/<string:job_id>/samples/<string:sample_name>")
 class CrashSample(Resource):
     def get(self, job_id, sample_name):
-        return send_file(
-            LagopusCrash.get_sample(job_id, sample_name), as_attachment=True
-        )
+        sample = LagopusCrash.get_sample(job_id, sample_name)
+        if sample:
+            return send_file(sample, as_attachment=True)
+        else:
+            return 404
 
 
 # -------------
