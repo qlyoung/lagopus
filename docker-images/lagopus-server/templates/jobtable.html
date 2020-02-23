@@ -39,7 +39,7 @@
             "url": "api/jobs",
             "dataSrc": ""
         },
-        "order": [[ 6, 'asc' ]],
+        "order": [[ 6, 'desc' ]],
         "columns": [
           {
             data: 'job_id',
@@ -55,7 +55,8 @@
           {
             data: 'create_time',
             render: function(data, type, row, meta) {
-                return moment(data);
+		console.log(data);
+                return type === 'sort' ? moment(data).unix() : moment(data);
             }
           },
         ]
