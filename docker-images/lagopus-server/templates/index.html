@@ -141,7 +141,7 @@ $('#jobform').submit(function(event) {
             <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Active Jobs</div>
             <div class="row no-gutters align-items-center">
               <div class="col-auto">
-                <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800" id="jobcount"></div>
+                <div class="h5 mb-0 mr-3 font-weight-bold text-primary" id="jobcount"></div>
                   <script>
                     $(document).ready(function() {
                       $.ajax({
@@ -173,7 +173,7 @@ $('#jobform').submit(function(event) {
             <div class="row no-gutters align-items-center">
               <div class="col-auto">
                 <!-- hyperscaling engaged -->
-                <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800" id="jobcount">{{ nodecount }}</div>
+                <div class="h5 mb-0 mr-3 font-weight-bold text-primary" id="jobcount">{{ nodecount }}</div>
               </div>
             </div>
           </div>
@@ -183,8 +183,10 @@ $('#jobform').submit(function(event) {
   </div>
   <!-- New job button -->
   <div class="col">
-    <div class="row justify-content-end">
-      <button class="d-none d-sm-inline-block btn btn-lg btn-primary shadow-lg" data-toggle="modal" data-target="#jobUploadModal">NEW JOB</button>
+    <div class="container-fluid">
+      <div class="row justify-content-end">
+        <button class="d-none d-sm-inline-block btn btn-lg btn-primary shadow-lg" data-toggle="modal" data-target="#jobUploadModal">NEW JOB</button>
+      </div>
     </div>
   </div>
 </div>
