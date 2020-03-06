@@ -52,7 +52,7 @@ function lagopus_job_aflstat(ctx, jobid) {
                 influx_column: 'mean_total_paths',
                 label: 'Total paths',
                 pointRadius: 1,
-                backgroundColor: color(lagopusChartColors.grey).alpha(0.3).rgbString(),
+                backgroundColor: color(lagopusChartColors.green).alpha(0.3).rgbString(),
                 fill: true,
                 data: []
             },
