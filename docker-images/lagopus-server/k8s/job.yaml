@@ -4,6 +4,8 @@ metadata:
   name: {{ jobname }}
   namespace: {{ namespace }}
 spec:
+  # Delete job 24 hours after it has finished
+  ttlSecondsAfterFinished: 86400
   template:
     spec:
       restartPolicy: Never
