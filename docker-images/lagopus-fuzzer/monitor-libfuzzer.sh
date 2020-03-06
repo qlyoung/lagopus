@@ -42,6 +42,7 @@ TOTAL_PFAV=0
 TOTAL_PENDING=0
 TOTAL_PATHS=0
 TOTAL_HRS=0
+TOTAL_MEM=0
 CURRENT_PATH=0
 AVG_EPS=0
 
@@ -60,6 +61,7 @@ done
 
 TOTAL_CRASHES=$(find . -maxdepth 1 -type f \( -name "crash-*" -o -name "leak-*" \) | wc -l)
 TOTAL_HANGS=$(find . -maxdepth 1 -type f -name "timeout-*" | wc -l)
+TOTAL_MEM=$(free --mega | grep Mem | tr -s ' ' | cut -d' ' -f3)
 
 echo "Pushing to database $INFLUX_DATABASE"
 
@@ -78,6 +80,7 @@ FIELDS="$FIELDS,pending_fav=$TOTAL_PFAV"
 FIELDS="$FIELDS,total_paths=$TOTAL_PATHS"
 FIELDS="$FIELDS,current_path=$CURRENT_PATH"
 FIELDS="$FIELDS,cpu_hours=$TOTAL_HRS"
+FIELDS="$FIELDS,memory=$TOTAL_MEM"
 
 echo "Creating DB"
 influx -host "$INFLUX_HOST" -port "$INFLUX_PORT" -execute "CREATE DATABASE \"$INFLUX_DATABASE\""

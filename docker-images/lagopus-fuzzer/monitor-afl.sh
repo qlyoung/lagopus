@@ -109,6 +109,7 @@ rm -f "$TMP"
 
 TOTAL_DAYS=$((TOTAL_TIME / 60 / 60 / 24))
 TOTAL_HRS=$(((TOTAL_TIME / 60 / 60) % 24))
+TOTAL_MEM=$(free --mega | grep Mem | tr -s ' ' | cut -d' ' -f3)
 AVG_EPS=$(($TOTAL_EPS / $ALIVE_CNT))
 
 test "$TOTAL_TIME" = "0" && TOTAL_TIME=1
@@ -130,6 +131,7 @@ FIELDS="$FIELDS,pending_fav=$TOTAL_PFAV"
 FIELDS="$FIELDS,total_paths=$TOTAL_PATHS"
 FIELDS="$FIELDS,current_path=$CURRENT_PATH"
 FIELDS="$FIELDS,cpu_hours=$TOTAL_HRS"
+FIELDS="$FIELDS,memory=$TOTAL_MEM"
 
 echo "Creating DB"
 influx -host "$INFLUX_HOST" -port "$INFLUX_PORT" -execute "CREATE DATABASE \"$INFLUX_DATABASE\""
