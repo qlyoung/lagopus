@@ -122,23 +122,49 @@ function lagopus_job_aflperf(ctx, jobid) {
         type: 'line',
         data: {
             datasets: [{
-                influx_column: 'mean_execs_per_sec',
                 label: 'Execs / sec',
+                influx_column: 'mean_execs_per_sec',
                 pointRadius: 1,
+                // borderColor: color(lagopusChartColors.blue).rgbString(),
                 backgroundColor: color(lagopusChartColors.blue).alpha(0.6).rgbString(),
                 fill: true,
-                data: []
+                data: [],
+                yAxisID: "y-axis-eps"
+            }, {
+                label: 'Memory',
+                influx_column: 'mean_memory',
+                pointRadius: 1,
+                borderColor: color(lagopusChartColors.orange).alpha(0.4).rgbString(),
+                backgroundColor: color(lagopusChartColors.orange).alpha(0.4).rgbString(),
+                fill: false,
+                data: [],
+                yAxisID: "y-axis-memory"
             }]
         },
         options: {
             maintainAspectRatio: false,
             scales: {
                 yAxes: [{
-                    stacked: true,
+                    id: "y-axis-eps",
+                    type: "linear",
+                    display: true,
+                    position: "left",
                     ticks: {
                         suggestedMin: 0,
                         suggestedMax: 500,
                     }
+                }, {
+                    id: "y-axis-memory",
+                    type: "linear",
+                    display: true,
+                    position: "right",
+                    ticks: {
+                        suggestedMin: 0,
+                        suggestedMax: 5000,
+                    },
+                    gridLines: {
+                        drawOnChartArea: false
+                    },
                 }],
                 xAxes: [{
                     type: 'time',
