@@ -47,11 +47,14 @@ AVG_EPS=0
 
 for file in ./fuzz-*.log; do
 	IFS=$'\n'
-	STATS=($(grep 'cov' "$file" | sed -e 's/^.*cov/cov/g' | tail -n 1 | tr -s ' ' | cut -d' ' -f2,4,6,8,10,12 | tr -s ' ' '\n' | sed -e 's/[A-Z][a-z]//g'))
+	STATS=($(grep 'cov' "$file" | tail -n 1 | tr -s '[:blank:]' ' ' | tr -s '[:blank:]' | sed 's/#//g' | cut -d' ' -f1,4,6,8,10,12,14 | tr -s ' ' '\n' | sed -e 's/[A-Z][a-z]//g'))
 	unset IFS
 
-	TOTAL_PATHS=$((TOTAL_PATHS + STATS[0]))
-	TOTAL_EPS=$((TOTAL_EPS + STATS[4]))
+	# Add stats from this fuzz log to cumulative stats
+	TOTAL_EXECS=$((TOTAL_EXECS + STATS[0]))
+	TOTAL_PATHS=$((TOTAL_PATHS + STATS[1]))
+	TOTAL_EPS=$((TOTAL_EPS + STATS[5]))
+	# XXX: Lol
 	ALIVE_CNT=$((ALIVE_CNT + 1))
 done
 
