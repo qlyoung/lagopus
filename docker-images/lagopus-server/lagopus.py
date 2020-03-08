@@ -250,12 +250,10 @@ class LagopusNode(object):
 class LagopusCrash(object):
     def get(self, job_id=None):
         cursor = lagopus_db_cursor(dictionary=True)
-
-        query = "SELECT * FROM crashes"
-        # FIXME: sqli
-        query += " WHERE job_id = {}".format(job_id) if job_id else ""
-
-        cursor.execute(query)
+        app.logger.error("Querying for crashes with job_id = '{}'".format(job_id))
+        query = "SELECT * FROM crashes WHERE job_id LIKE %(job_id)s"
+        job_id = job_id if job_id else '%'
+        cursor.execute(query, {"job_id": job_id})
         result = cursor.fetchall()
         return result
 
