@@ -3406,8 +3406,8 @@ input[type="button"].btn-block {
 }
 
 .fade {
-  -webkit-transition: opacity 0.15s linear;
-  transition: opacity 0.15s linear;
+  -webkit-transition: opacity 0.05s linear;
+  transition: opacity 0.05s linear;
 }
 
 @media (prefers-reduced-motion: reduce) {
