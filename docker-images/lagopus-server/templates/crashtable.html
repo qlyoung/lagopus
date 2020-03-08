@@ -1,0 +1,77 @@
+<!-- Crash table -->
+<div class="card shadow mb-4">
+  <div class="card-header py-3">
+    <h6 class="m-0 font-weight-bold text-primary">Recent Crashes</h6>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+        <thead>
+          <tr>
+            <th>Job</th>
+            <th>Sample</th>
+            <th>Type</th>
+            <th>Security Issue</th>
+            <th>Backtrace</th>
+            <th>Return Code</th>
+          </tr>
+        </thead>
+        <tfoot>
+          <tr>
+            <th>Job</th>
+            <th>Sample</th>
+            <th>Type</th>
+            <th>Security Issue</th>
+            <th>Backtrace</th>
+            <th>Return Code</th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+<!-- snippet to update crash table on page load -->
+<script>
+function lagopus_crashtable(job_id) {
+  $(document).ready(function() {
+    $('#dataTable').DataTable( {
+        "ajax": {
+            "url": "api/crashes?job_id=" + job_id,
+            "dataSrc": ""
+        },
+        "order": [[ 6, 'desc' ]],
+        "columns": [
+          {
+            data: 'job_id',
+            render: function(data, type, row, meta) {
+                return '<a href="jobs.html?job_id='+encodeURIComponent(data)+'">'+data+'</a>';
+            }
+          },
+          {
+            data: 'sample_path',
+            render: function(data, type, row, meta) {
+                return '<a href="api/crashes/'+encodeURIComponent(row['job_id'])+'/samples/'+encodeURIComponent(data)+'">Download</a>';
+            }
+          },
+          { data: 'type' },
+          { data: 'is_security_issue' },
+          {
+            data: 'backtrace',
+            width: '35%',
+            render: function(data, type, row, meta) {
+                return '<details><summary>Click for stack trace</summary><code style="display:block;white-space:pre-wrap;font-size:0.6em">'+data+'</code></details>';
+            }
+          },
+          { data: 'return_code' },
+          {
+            data: 'create_time',
+            visible: false,
+            render: function(data, type, row, meta) {
+                return type === 'sort' ? moment(data).unix() : moment(data);
+            }
+          }
+        ]
+    } );
+  } );
+}
+</script>
