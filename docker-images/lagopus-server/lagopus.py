@@ -17,6 +17,7 @@ from flask import redirect, url_for
 from flask import jsonify
 from flask_restx import Resource, Api, reqparse
 from werkzeug.utils import secure_filename
+from requests.exceptions import ConnectionError
 
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError
@@ -482,7 +483,13 @@ class JobStats(Resource):
             default=None,
         )
         args = parser.parse_args()
-        results = LagopusJob.get_stats(job_id, args["since"])
+
+        results = []
+        try:
+            results = LagopusJob.get_stats(job_id, args["since"])
+        except ConnectionError as e:
+            app.logger.warning("Could not connect to InfluxDB")
+
         return jsonify(results)
 
 
