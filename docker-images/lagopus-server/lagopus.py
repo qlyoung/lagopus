@@ -503,7 +503,7 @@ class CrashList(Resource):
             required=False,
         )
         args = parser.parse_args()
-        crashes = LagopusCrash.get(*args)
+        crashes = LagopusCrash.get(**args)
         crashes = crashes if crashes else []
         return jsonify(crashes)
 
