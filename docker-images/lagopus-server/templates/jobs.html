@@ -10,91 +10,132 @@
   <!-- Job table -->
   {% include "jobtable.html" %}
 {% else %}
-  <!-- Job stats -->
-  <div class="row">
-    <div class="w-100 p-2">
-      <div class="card shadow">
-        <div class="card-header py-3">
-          <h6 class="m-0 font-weight-bold text-primary">Summary</h6>
+
+<!-- Content tab panel -->
+<ul class="nav nav-tabs" id="jobTabs" role="tablist">
+  <li class="nav-item">
+    <a class="nav-link active" id="statsTab" data-toggle="tab" href="#stats" role="tab" aria-controls="stats" aria-selected="true">Statistics</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" id="coverageTab" data-toggle="tab" href="#coverage" role="tab" aria-controls="coverage" aria-selected="true">Coverage</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" id="crashesTab" data-toggle="tab" href="#crashes" role="tab" aria-crashess="crashes" aria-selected="true">Crashes</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" id="controlTab" data-toggle="tab" href="#control" role="tab" aria-controls="control" aria-selected="true">Control</a>
+  </li>
+</ul>
+<!-- Stats -->
+<div class="tab-content" id="jobTabsContent">
+  <div class="tab-pane fade" id="coverage" role="tabpanel" aria-labelledby="coverage-tab">
+    <div class="row">
+      <div class="col text-center">
+        <p>No coverage report available</p>
+      </div>
+    </div>
+  </div>
+  <div class="tab-pane fade" id="control" role="tabpanel" aria-labelledby="control-tab">
+    <div class="row">
+      <div class="col text-center">
+        <p>Control panel not yet implemented</p>
+      </div>
+    </div>
+  </div>
+  <div class="tab-pane fade" id="crashes" role="tabpanel" aria-labelledby="crashes-tab">
+    {% include "crashtable.html" %}
+    <script>
+      lagopus_crashtable("{{ job["job_id"] }}");
+    </script>
+  </div>
+  <div class="tab-pane fade show active" id="stats" role="tabpanel" aria-labelledby="stats-tab">
+    <div class="row">
+      <div class="w-100 p-2">
+        <div class="card shadow">
+          <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Summary</h6>
+          </div>
+          <div class="card-body">
+            <div class="container">
+              <div class="row">
+                <div class="col"><strong>Status</strong><p><span id="summary_status" class="badge badge-primary">{{ job["status"] }}</span></p></div>
+                <div class="col"><strong>Crashes</strong><p id="summary_crashes">-</p></div>
+                <div class="col"><strong>Hangs</strong><p id="summary_hangs">-</p></div>
+                <div class="col"><strong>Live fuzzers</strong><p id="summary_live_fuzzers">-</p></div>
+                <div class="col"><strong>Total Paths</strong><p id="summary_paths">-</p></div>
+                <div class="col"><strong>Total Execs</strong><p id="summary_execs">-</p></div>
+              </div>
+            </div>
+            <script>
+              function update_summary() {
+                  $.ajax({
+                      type: "get",
+                      url: "api/jobs/{{ job["job_id"] }}",
+                      success: function(data) {
+                          $("#summary_status").text(data["status"]);
+                          $.ajax({
+                              type: "get",
+                              url: "api/jobs/{{ job["job_id"] }}/stats",
+                              success: function(data) {
+                                  if (data.length == 0)
+                                      return;
+                                  $("#summary_crashes").text(Math.ceil(data[data.length - 1]['mean_crashes']));
+                                  $("#summary_hangs").text(Math.ceil(data[data.length - 1]['mean_hangs']));
+                                  $("#summary_live_fuzzers").text(Math.ceil(data[data.length - 1]['mean_alive']));
+                                  $("#summary_paths").text(Math.ceil(data[data.length - 1]['mean_total_paths']));
+                                  $("#summary_execs").text(Math.ceil(data[data.length - 1]['mean_execs']));
+                                  if (data["status"] != "Complete")
+                                      setTimeout(update_summary, 15000);
+                              }
+                          });
+                          if (data["status"] == "Complete") {
+                              $("#summary_status").removeClass("badge-primary");
+                              $("#summary_status").addClass("badge-success");
+                          }
+                      }
+                  });
+              }
+              update_summary();
+            </script>
+          </div>
         </div>
-        <div class="card-body">
-          <div class="container">
-            <div class="row">
-              <div class="col"><strong>Status</strong><p><span id="summary_status" class="badge badge-primary">{{ job["status"] }}</span></p></div>
-              <div class="col"><strong>Crashes</strong><p id="summary_crashes">-</p></div>
-              <div class="col"><strong>Hangs</strong><p id="summary_hangs">-</p></div>
-              <div class="col"><strong>Live fuzzers</strong><p id="summary_live_fuzzers">-</p></div>
-              <div class="col"><strong>Total Paths</strong><p id="summary_paths">-</p></div>
-              <div class="col"><strong>Total Execs</strong><p id="summary_execs">-</p></div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="w-50 p-2">
+        <div class="card shadow">
+          <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Fuzzing Stats</h6>
+          </div>
+          <div class="card-body">
+            <div class="chart-area" style="position: relative">
+              <canvas id="statChart"></canvas>
             </div>
           </div>
-          <script>
-            function update_summary() {
-                $.ajax({
-                    type: "get",
-                    url: "api/jobs/{{ job["job_id"] }}",
-                    success: function(data) {
-                        $("#summary_status").text(data["status"]);
-                        $.ajax({
-                            type: "get",
-                            url: "api/jobs/{{ job["job_id"] }}/stats",
-                            success: function(data) {
-                                if (data.length == 0)
-                                    return;
-                                $("#summary_crashes").text(Math.ceil(data[data.length - 1]['mean_crashes']));
-                                $("#summary_hangs").text(Math.ceil(data[data.length - 1]['mean_hangs']));
-                                $("#summary_live_fuzzers").text(Math.ceil(data[data.length - 1]['mean_alive']));
-                                $("#summary_paths").text(Math.ceil(data[data.length - 1]['mean_total_paths']));
-                                $("#summary_execs").text(Math.ceil(data[data.length - 1]['mean_execs']));
-                                if (data["status"] != "Complete")
-                                    setTimeout(update_summary, 15000);
-                            }
-                        });
-                        if (data["status"] == "Complete") {
-                            $("#summary_status").removeClass("badge-primary");
-                            $("#summary_status").addClass("badge-success");
-                        }
-                    }
-                });
-            }
-            update_summary();
-          </script>
         </div>
       </div>
-    </div>
-  </div>
-  <div class="row">
-    <div class="w-50 p-2">
-      <div class="card shadow">
-        <div class="card-header py-3">
-          <h6 class="m-0 font-weight-bold text-primary">Fuzzing Stats</h6>
-        </div>
-        <div class="card-body">
-          <div class="chart-area" style="position: relative">
-            <canvas id="statChart"></canvas>
+      <div class="w-50 p-2">
+        <div class="card shadow">
+          <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Performance Stats</h6>
+          </div>
+          <div class="card-body">
+            <div class="chart-area" style="position: relative">
+              <canvas id="perfChart"></canvas>
+            </div>
           </div>
         </div>
       </div>
     </div>
-    <div class="w-50 p-2">
-      <div class="card shadow">
-        <div class="card-header py-3">
-          <h6 class="m-0 font-weight-bold text-primary">Performance Stats</h6>
-        </div>
-        <div class="card-body">
-          <div class="chart-area" style="position: relative">
-            <canvas id="perfChart"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- graph job stats -->
+    <script src="js/lagopus.js"></script>
+    <script>
+    lagopus_job_aflstat($("#statChart"), '{{ job["job_id"] }}');
+    lagopus_job_aflperf($("#perfChart"), '{{ job["job_id"] }}');
+    </script>
   </div>
-  <!-- graph job stats -->
-  <script src="js/lagopus.js"></script>
-  <script>
-  lagopus_job_aflstat($("#statChart"), '{{ job["job_id"] }}');
-  lagopus_job_aflperf($("#perfChart"), '{{ job["job_id"] }}');
-  </script>
+</div>
+
 {% endif %}
 
 {% endblock %} <!-- content -->
