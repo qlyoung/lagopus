@@ -190,6 +190,22 @@ def lagopus_k8s_get_nodes():
     return nodes
 
 
+def lagopus_k8s_kill_job(job_id, namespace="default"):
+    # FIXME: should wrap this away from k8s
+    # delete job and all related resources (propagation_policy="Background")
+    try:
+        response = apis["batchv1"].delete_namespaced_job(
+            job_id, namespace, propagation_policy="Background"
+        )
+        app.logger.warning(response)
+    except ApiException as e:
+        app.logger.error("k8s API exception:")
+        app.logger.exception(e)
+        return False
+
+    return True
+
+
 # ---
 # Backend
 # ---
@@ -353,8 +369,17 @@ class LagopusJob(object):
 
         return self.get(job_id)
 
+    def kill(self, job_id):
+        job = lagopus_k8s_get_jobs(job_id)
+        if not job:
+            app.logger.warning("Job not found ({})".format(job_id))
+            raise Exception("Job not found")
+        return lagopus_k8s_kill_job(job_id)
+
     def delete(self, job_id):
-        pass
+        response = self.kill(job_id)
+        # TODO: delete job from db
+        return response
 
     # --
 
@@ -468,6 +493,37 @@ class Job(Resource):
     def get(self, job_id):
         job = LagopusJob.get(job_id)
         return jsonify(job) if job else 404
+
+    def post(self, job_id):
+        parser = reqparse.RequestParser(bundle_errors=True)
+        parser.add_argument(
+            "action", type=str, help="Action to perform; one of (kill,)", required=True
+        )
+        try:
+            args = parser.parse_args()
+        except Exception as e:
+            app.logger.error("Encountered error parsing arguments: {}".format(str(e)))
+            return {"error": "Invalid request"}, 400
+
+        job = LagopusJob.get(job_id)
+        if not job:
+            return {"error": "No such job"}, 404
+
+        if args["action"] == "kill":
+            try:
+                response = LagopusJob.kill(job_id)
+            except Exception as e:
+                app.logger.warning("Failed to kill job: {}".format(job_id))
+                app.logger.exception(e)
+                return {"status": "failed"}, 500
+
+            if response:
+                return {"status": "success"}, 200
+            else:
+                app.logger.warning("k8s kill failed for job {}".format(job_id))
+                return {"status": "failed"}, 500
+
+        return {"status": "Unknown action"}, 400
 
 
 @api.route("/jobs/<string:job_id>/stats")
