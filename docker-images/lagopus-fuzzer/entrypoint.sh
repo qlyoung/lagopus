@@ -91,7 +91,7 @@ if [ ! -d "$(pwd)/$CORPUS" ]; then
 fi
 
 if [ "$DRIVER" == "afl" ] && [ ! -f "$(pwd)/$AFLMCC" ]; then
-  printf "afl-multicore config file %s/%s does not exist; exiting\n" "$(pwd)" "$(AFLMCC)"
+  printf "afl-multicore config file %s/%s does not exist; exiting\n" "$(pwd)" "$AFLMCC"
   exit 1
 fi
 
