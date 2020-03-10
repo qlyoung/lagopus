@@ -37,8 +37,26 @@
   </div>
   <div class="tab-pane fade" id="control" role="tabpanel" aria-labelledby="control-tab">
     <div class="row">
-      <div class="col text-center">
-        <p>Control panel not yet implemented</p>
+      <div class="col">
+        <div class="card h-100">
+          <div class="row">
+            <div class="col">
+              <button class="btn btn-lg btn-danger" id="killButton">Kill</button>
+                <script>
+                  $("#killButton").click(function() {
+                    $.ajax({
+                      type: "post",
+                      url: "api/jobs/{{ job["job_id"] }}",
+                      data: JSON.stringify({
+                        "action": "kill"
+                      }),
+                      contentType: "application/json"
+                    });
+                  });
+                </script>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
