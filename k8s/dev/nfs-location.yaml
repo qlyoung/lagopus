@@ -4,4 +4,4 @@ metadata:
   name: nfs
 spec:
   nfs:
-    path: /opt/lagopus_storage
+    path: /opt/lagopus
