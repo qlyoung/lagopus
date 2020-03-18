@@ -97,11 +97,11 @@
                               success: function(data) {
                                   if (data.length == 0)
                                       return;
-                                  $("#summary_crashes").text(Math.ceil(data[data.length - 1]['mean_crashes']));
-                                  $("#summary_hangs").text(Math.ceil(data[data.length - 1]['mean_hangs']));
-                                  $("#summary_live_fuzzers").text(Math.ceil(data[data.length - 1]['mean_alive']));
-                                  $("#summary_paths").text(Math.ceil(data[data.length - 1]['mean_total_paths']));
-                                  $("#summary_execs").text(Math.ceil(data[data.length - 1]['mean_execs']));
+                                  $("#summary_crashes").text(Math.ceil(data[data.length - 1]['crashes']));
+                                  $("#summary_hangs").text(Math.ceil(data[data.length - 1]['hangs']));
+                                  $("#summary_live_fuzzers").text(Math.ceil(data[data.length - 1]['alive']));
+                                  $("#summary_paths").text(Math.ceil(data[data.length - 1]['total_paths']));
+                                  $("#summary_execs").text(Math.ceil(data[data.length - 1]['execs']));
                                   if (data["status"] != "Complete")
                                       setTimeout(update_summary, 15000);
                               }
