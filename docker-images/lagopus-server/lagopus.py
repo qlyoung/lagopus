@@ -15,7 +15,7 @@ from flask import request
 from flask import flash
 from flask import redirect, url_for
 from flask import jsonify
-from flask_restx import Resource, Api, reqparse
+from flask_restx import Resource, Api, Model, reqparse, fields, errors
 from werkzeug.utils import secure_filename
 from requests.exceptions import ConnectionError
 
@@ -42,7 +42,7 @@ CONFIG = {
         },
         "tables": ["jobs", "crashes"],
     },
-    "jobs": {"cores": 2, "memory": 200, "deadline": 240,},
+    "jobs": {"cpus": 2, "memory": 200, "deadline": 240,},
 }
 
 # ---
@@ -148,7 +148,7 @@ def lagopus_k8s_get_jobs(job_id=None, namespace="default"):
         onejob = {}
         fzctr = job.spec.template.spec.containers[0]
         onejob["name"] = job.metadata.name
-        onejob["cores"] = fzctr.resources.requests["cpu"]
+        onejob["cpus"] = fzctr.resources.requests["cpu"]
         onejob["memory"] = fzctr.resources.requests["memory"]
         onejob["deadline"] = job.spec.active_deadline_seconds
         onejob["driver"] = "Unknown"
@@ -298,6 +298,11 @@ class LagopusCrash(object):
 
 
 class LagopusJob(object):
+    """
+    Singleton class that provides getters and setters for jobs.
+
+    This is not a model for a job itself.
+    """
     def __init__(self):
         pass
 
@@ -351,7 +356,7 @@ class LagopusJob(object):
         # insert new job into db
         cursor = lagopus_db_cursor()
         cursor.execute(
-            "INSERT INTO jobs (job_id, status, driver, target, cores, memory, deadline, create_time) VALUES ('{}', '{}', '{}', '{}', {}, {}, {}, '{}')".format(
+            "INSERT INTO jobs (job_id, status, driver, target, cpus, memory, deadline, create_time) VALUES ('{}', '{}', '{}', '{}', {}, {}, {}, '{}')".format(
                 job_id,
                 status,
                 driver,
@@ -436,142 +441,175 @@ def apply_caching(response):
 app.config["UPLOAD_FOLDER"] = tempfile.mkdtemp()
 app.config["SECRET_KEY"] = "389afsd89j34fasd"
 
-
 @api.route("/nodes")
 class Node(Resource):
     def get(self):
         return LagopusNode.get()
 
 
+job_base_model = Model('Job', {
+    'driver': fields.String(description="The fuzzing driver", enum=["afl", "libFuzzer"], required=True),
+    'cpus': fields.Integer(description="Number of CPUs the job should use", required=True),
+    'memory': fields.Integer(description="Memory limit for the job, in Mi", required=True),
+    'deadline': fields.Integer(description="Maximum runtime of fuzzing step", required=True),
+})
+
+job_request_model = api.clone('JobRequest', job_base_model, {
+    'job_name': fields.String(description="Name for job", required=True),
+    'target': fields.String(description="Base64 encoded zip archive containing target binary and corpus", required=True),
+})
+job_response_model = api.clone('JobResponse', job_base_model, {
+    'job_id': fields.String(description="Unique ID for job", required=True),
+    'create_time': fields.DateTime(description="Internal job creation timestamp", required=True),
+    'status': fields.String(description="Current status of job", enum=["Complete", "Incomplete", "Unknown"], required=True),
+})
+
 @api.route("/jobs")
 class JobList(Resource):
+    @api.marshal_list_with(job_response_model)
     def get(self):
         jobs = LagopusJob.get()
-        jobs = jobs if jobs else []
-        return jsonify(jobs)
+        return jobs if jobs else []
 
+    @api.expect(job_request_model, validate=True)
+    @api.marshal_with(job_response_model, code=201)
     def post(self):
-        app.logger.info("Rx'd new job json: {}".format(request.json))
-
-        parser = reqparse.RequestParser(bundle_errors=True)
-        parser.add_argument(
-            "target", type=str, help="base64 encoded job zip file", required=True,
-        )
-        parser.add_argument("job_name", type=str, help="Job name", required=True)
-        parser.add_argument("driver", type=str, help="Fuzzing driver", required=True)
-        parser.add_argument(
-            "cpus", type=str, help="Number of CPUs", default=CONFIG["jobs"]["cores"],
-        )
-        parser.add_argument(
-            "memory",
-            type=str,
-            help="Memory requirement, in Mi",
-            default=CONFIG["jobs"]["memory"],
-        )
-        parser.add_argument(
-            "deadline",
-            type=str,
-            help="Fuzzing runtime, in s",
-            default=CONFIG["jobs"]["deadline"],
-        )
-        try:
-            args = parser.parse_args()
-        except Exception as e:
-            app.logger.error("Encountered error parsing arguments: {}".format(str(e)))
-            return {"error": "Invalid job specification"}, 400
-
-        job = LagopusJob.create(**args)
+        job = LagopusJob.create(**api.payload)
         app.logger.info("Created job {}".format(job))
-
-        response = jsonify(job)
-        response.status_code = 201
-        return response
+        return job
 
 
 @api.route("/jobs/<string:job_id>")
+@api.doc(params={"job_id": "Job to retrieve"})
 class Job(Resource):
+    @api.marshal_with(job_response_model)
     def get(self, job_id):
-        job = LagopusJob.get(job_id)
-        return jsonify(job) if job else 404
+        return LagopusJob.get(job_id)
 
+
+job_control_request_model = api.model('JobControlRequest', {
+    'action': fields.String(description="Action to perform", enum=["kill"], required=True),
+})
+job_control_response_model = api.model('JobControlResponse', {
+    'job_id': fields.String(description="Unique ID for job", required=True),
+    'status': fields.String(description="Operation status", enum=["error", "success"], required=True),
+    'info': fields.String(description="Extra information about the operation"),
+})
+
+@api.route("/jobs/<string:job_id>/control")
+@api.doc(params={"job_id": "Job to effect action on"})
+class JobControl(Resource):
+    @api.expect(job_control_request_model, validate=True)
+    @api.marshal_with(job_control_response_model)
+    @api.doc(responses={404: "No such job", 500: "Failed to complete action", 400: "Unknown action"})
     def post(self, job_id):
-        parser = reqparse.RequestParser(bundle_errors=True)
-        parser.add_argument(
-            "action", type=str, help="Action to perform; one of (kill,)", required=True
-        )
-        try:
-            args = parser.parse_args()
-        except Exception as e:
-            app.logger.error("Encountered error parsing arguments: {}".format(str(e)))
-            return {"error": "Invalid request"}, 400
-
         job = LagopusJob.get(job_id)
+
+        response = {
+            "job_id": job_id,
+            "status": "",
+        }
         if not job:
-            return {"error": "No such job"}, 404
+            errors.abort(code=404, message="No such job {}".format(job_id))
 
-        if args["action"] == "kill":
+        if api.payload["action"] == "kill":
             try:
-                response = LagopusJob.kill(job_id)
+                lr = LagopusJob.kill(job_id)
             except Exception as e:
-                app.logger.warning("Failed to kill job: {}".format(job_id))
                 app.logger.exception(e)
-                return {"status": "failed"}, 500
+                app.logger.warning("k8s kill failed for job {}".format(job_id))
+                errors.abort(code=500, message="Failed to kill job {}".format(job_id))
 
-            if response:
-                return {"status": "success"}, 200
+            if lr:
+                response["status"] = "success"
+                response["info"] = "killed job"
+                return response, 200
             else:
                 app.logger.warning("k8s kill failed for job {}".format(job_id))
-                return {"status": "failed"}, 500
+                errors.abort(code=500, message="Failed to kill job {}".format(job_id))
 
-        return {"status": "Unknown action"}, 400
+        errors.abort(code=400, message="Unknown action")
 
+
+stats_response_model = api.model("JobStatsResponse", {
+    "alive": fields.Integer(description="Number of fuzzing processes running", required=True, attribute="mean_alive"),
+    "cpu_hours": fields.Float(description="Number of CPU hours consumed", required=True, attribute="mean_cpu_hours"),
+    "crashes": fields.Integer(description="Number of crashes triggered", required=True, attribute="mean_crashes"),
+    "current_path": fields.Integer(description="For AFL, the current path depth", required=True, attribute="mean_current_path"),
+    "execs": fields.Integer(description="Total execution count of target", required=True, attribute="mean_execs"),
+    "execs_per_sec": fields.Float(description="Number of target executions per second", required=True, attribute="mean_execs_per_sec"),
+    "hangs": fields.Integer(description="Number of hangs triggered", required=True, attribute="mean_hangs"),
+    "memory": fields.Float(description="Memory usage, in Mi", required=True, attribute="mean_memory"),
+    "pending": fields.Integer(description="For AFL, number of unexplored paths", required=True, attribute="mean_pending"),
+    "pending_fav": fields.Integer(description="For AFL, number of favored unexplored paths", required=True, attribute="mean_pending_fav"),
+    "total_paths": fields.Integer(description="Number of execution paths discovered", required=True, attribute="mean_total_paths"),
+    "time": fields.DateTime(description="Timestamp", required=True),
+})
+
+parser_stats = reqparse.RequestParser()
+parser_stats.add_argument("since", type=str, help="Time to fetch stats since, as ISO 8601 timestamp", default=None)
 
 @api.route("/jobs/<string:job_id>/stats")
+@api.doc(params={"job_id": "Job to retrieve stats for"})
 class JobStats(Resource):
+    @api.expect(parser_stats, validate=True)
+    @api.marshal_with(stats_response_model)
+    @api.doc(responses={503: "Could not collect to stats database"})
     def get(self, job_id):
-        parser = reqparse.RequestParser()
-        parser.add_argument(
-            "since",
-            type=str,
-            help="Time to fetch stats since, as ISO 8601 timestamp",
-            default=None,
-        )
-        args = parser.parse_args()
-
-        results = []
         try:
-            results = LagopusJob.get_stats(job_id, args["since"])
+            args = parser_stats.parse_args()
+            since = args["since"] if "since" in args else None
+            app.logger.warning("Requesting since: {}".format(since))
+            results = LagopusJob.get_stats(job_id, since)
         except ConnectionError as e:
             app.logger.warning("Could not connect to InfluxDB")
+            errors.abort(code=503, message="Could not connect to InfluxDB")
 
-        return jsonify(results)
+        return results
 
+
+crash_model = api.model("Crash", {
+    "job_id": fields.String(description="Job that this crash was found in", required=True),
+    "type": fields.String(description="Crash type; buffer overflow, use after free, etc.", required=True),
+    "is_security_issue": fields.Boolean(description="Heuristic on whether this is likely to be a security issue"),
+    "is_crash": fields.Boolean(description="Whether this is a hard crash, versus a memory leak or hang"),
+    "sample_path": fields.String(description="Name of sample that triggers the crash", required=True),
+    "backtrace": fields.String(description="Program output upon crash", required=True),
+    "backtrace_hash": fields.String(description="Backtrace hash; used for deduplicating crashes"),
+    "return_code": fields.Integer(description="Program return code upon crash"),
+    "create_time": fields.DateTime(description="Timestamp"),
+})
+
+parser_crashes = reqparse.RequestParser()
+parser_crashes.add_argument(
+    "job_id",
+    type=str,
+    help="Return crashes found by a specific job",
+    default=None,
+    required=False,
+)
 
 @api.route("/crashes")
 class CrashList(Resource):
+    @api.expect(parser_crashes, validate=True)
+    @api.marshal_list_with(crash_model)
     def get(self):
-        parser = reqparse.RequestParser()
-        parser.add_argument(
-            "job_id",
-            type=str,
-            help="Return crashes found by a specific job",
-            default=None,
-            required=False,
-        )
-        args = parser.parse_args()
+        args = parser_crashes.parse_args()
         crashes = LagopusCrash.get(**args)
         crashes = crashes if crashes else []
-        return jsonify(crashes)
+        return crashes
 
 
 @api.route("/crashes/<string:job_id>/samples/<string:sample_name>")
+@api.doc(params={"job_id": "Job to select sample from", "sample_name": "Name of sample"})
 class CrashSample(Resource):
+    @api.doc(responses={404: "Sample not found"})
     def get(self, job_id, sample_name):
         sample = LagopusCrash.get_sample(job_id, sample_name)
         if sample:
             return send_file(sample, as_attachment=True)
         else:
-            return 404
+            errors.abort(code=404, message="Sample not found")
 
 
 # -------------
@@ -592,7 +630,7 @@ def index():
         pagename=pagename,
         defaultdeadline=CONFIG["jobs"]["deadline"],
         defaultmemory=CONFIG["jobs"]["memory"],
-        defaultcores=CONFIG["jobs"]["cores"],
+        defaultcpus=CONFIG["jobs"]["cpus"],
         jobcount=jc,
         nodecount=nc,
     )
