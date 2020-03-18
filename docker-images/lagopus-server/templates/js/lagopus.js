@@ -49,7 +49,7 @@ function lagopus_job_aflstat(ctx, jobid) {
         type: 'line',
         data: {
             datasets: [{
-                influx_column: 'mean_total_paths',
+                influx_column: 'total_paths',
                 label: 'Total paths',
                 pointRadius: 1,
                 backgroundColor: color(lagopusChartColors.green).alpha(0.3).rgbString(),
@@ -57,7 +57,7 @@ function lagopus_job_aflstat(ctx, jobid) {
                 data: []
             },
             {
-                influx_column: 'mean_current_path',
+                influx_column: 'current_path',
                 label: 'Current path',
                 pointRadius: 1,
                 backgroundColor: color(lagopusChartColors.white).alpha(0.4).rgbString(),
@@ -65,7 +65,7 @@ function lagopus_job_aflstat(ctx, jobid) {
                 data: []
             },
             {
-                influx_column: 'mean_pending',
+                influx_column: 'pending',
                 label: 'Pending paths',
                 pointRadius: 1,
                 backgroundColor: color(lagopusChartColors.blue).alpha(0.5).rgbString(),
@@ -73,7 +73,7 @@ function lagopus_job_aflstat(ctx, jobid) {
                 data: []
             },
             {
-                influx_column: 'mean_pending_fav',
+                influx_column: 'pending_fav',
                 label: 'Pending favored paths',
                 pointRadius: 1,
                 backgroundColor: color(lagopusChartColors.red).alpha(0.8).rgbString(),
@@ -123,7 +123,7 @@ function lagopus_job_aflperf(ctx, jobid) {
         data: {
             datasets: [{
                 label: 'Execs / sec',
-                influx_column: 'mean_execs_per_sec',
+                influx_column: 'execs_per_sec',
                 pointRadius: 1,
                 // borderColor: color(lagopusChartColors.blue).rgbString(),
                 backgroundColor: color(lagopusChartColors.blue).alpha(0.6).rgbString(),
@@ -132,7 +132,7 @@ function lagopus_job_aflperf(ctx, jobid) {
                 yAxisID: "y-axis-eps"
             }, {
                 label: 'Memory',
-                influx_column: 'mean_memory',
+                influx_column: 'memory',
                 pointRadius: 1,
                 borderColor: color(lagopusChartColors.orange).alpha(0.4).rgbString(),
                 backgroundColor: color(lagopusChartColors.orange).alpha(0.4).rgbString(),

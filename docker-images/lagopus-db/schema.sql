@@ -4,7 +4,7 @@ CREATE TABLE `jobs` (
     `status` varchar(64) NOT NULL,
     `driver` varchar(32) NOT NULL,
     `target` varchar(4096) NOT NULL,
-    `cores` int(11) NOT NULL,
+    `cpus` int(11) NOT NULL,
     `memory` int(11) NOT NULL,
     `deadline` int(11) NOT NULL,
     `create_time` timestamp,
