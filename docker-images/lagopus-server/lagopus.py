@@ -303,6 +303,7 @@ class LagopusJob(object):
 
     This is not a model for a job itself.
     """
+
     def __init__(self):
         pass
 
@@ -441,28 +442,58 @@ def apply_caching(response):
 app.config["UPLOAD_FOLDER"] = tempfile.mkdtemp()
 app.config["SECRET_KEY"] = "389afsd89j34fasd"
 
+
 @api.route("/nodes")
 class Node(Resource):
     def get(self):
         return LagopusNode.get()
 
 
-job_base_model = Model('Job', {
-    'driver': fields.String(description="The fuzzing driver", enum=["afl", "libFuzzer"], required=True),
-    'cpus': fields.Integer(description="Number of CPUs the job should use", required=True),
-    'memory': fields.Integer(description="Memory limit for the job, in Mi", required=True),
-    'deadline': fields.Integer(description="Maximum runtime of fuzzing step", required=True),
-})
+job_base_model = Model(
+    "Job",
+    {
+        "driver": fields.String(
+            description="The fuzzing driver", enum=["afl", "libFuzzer"], required=True
+        ),
+        "cpus": fields.Integer(
+            description="Number of CPUs the job should use", required=True
+        ),
+        "memory": fields.Integer(
+            description="Memory limit for the job, in Mi", required=True
+        ),
+        "deadline": fields.Integer(
+            description="Maximum runtime of fuzzing step", required=True
+        ),
+    },
+)
 
-job_request_model = api.clone('JobRequest', job_base_model, {
-    'job_name': fields.String(description="Name for job", required=True),
-    'target': fields.String(description="Base64 encoded zip archive containing target binary and corpus", required=True),
-})
-job_response_model = api.clone('JobResponse', job_base_model, {
-    'job_id': fields.String(description="Unique ID for job", required=True),
-    'create_time': fields.DateTime(description="Internal job creation timestamp", required=True),
-    'status': fields.String(description="Current status of job", enum=["Complete", "Incomplete", "Unknown"], required=True),
-})
+job_request_model = api.clone(
+    "JobRequest",
+    job_base_model,
+    {
+        "job_name": fields.String(description="Name for job", required=True),
+        "target": fields.String(
+            description="Base64 encoded zip archive containing target binary and corpus",
+            required=True,
+        ),
+    },
+)
+job_response_model = api.clone(
+    "JobResponse",
+    job_base_model,
+    {
+        "job_id": fields.String(description="Unique ID for job", required=True),
+        "create_time": fields.DateTime(
+            description="Internal job creation timestamp", required=True
+        ),
+        "status": fields.String(
+            description="Current status of job",
+            enum=["Complete", "Incomplete", "Unknown"],
+            required=True,
+        ),
+    },
+)
+
 
 @api.route("/jobs")
 class JobList(Resource):
@@ -487,21 +518,38 @@ class Job(Resource):
         return LagopusJob.get(job_id)
 
 
-job_control_request_model = api.model('JobControlRequest', {
-    'action': fields.String(description="Action to perform", enum=["kill"], required=True),
-})
-job_control_response_model = api.model('JobControlResponse', {
-    'job_id': fields.String(description="Unique ID for job", required=True),
-    'status': fields.String(description="Operation status", enum=["error", "success"], required=True),
-    'info': fields.String(description="Extra information about the operation"),
-})
+job_control_request_model = api.model(
+    "JobControlRequest",
+    {
+        "action": fields.String(
+            description="Action to perform", enum=["kill"], required=True
+        ),
+    },
+)
+job_control_response_model = api.model(
+    "JobControlResponse",
+    {
+        "job_id": fields.String(description="Unique ID for job", required=True),
+        "status": fields.String(
+            description="Operation status", enum=["error", "success"], required=True
+        ),
+        "info": fields.String(description="Extra information about the operation"),
+    },
+)
+
 
 @api.route("/jobs/<string:job_id>/control")
 @api.doc(params={"job_id": "Job to effect action on"})
 class JobControl(Resource):
     @api.expect(job_control_request_model, validate=True)
     @api.marshal_with(job_control_response_model)
-    @api.doc(responses={404: "No such job", 500: "Failed to complete action", 400: "Unknown action"})
+    @api.doc(
+        responses={
+            404: "No such job",
+            500: "Failed to complete action",
+            400: "Unknown action",
+        }
+    )
     def post(self, job_id):
         job = LagopusJob.get(job_id)
 
@@ -531,23 +579,74 @@ class JobControl(Resource):
         errors.abort(code=400, message="Unknown action")
 
 
-stats_response_model = api.model("JobStatsResponse", {
-    "alive": fields.Integer(description="Number of fuzzing processes running", required=True, attribute="mean_alive"),
-    "cpu_hours": fields.Float(description="Number of CPU hours consumed", required=True, attribute="mean_cpu_hours"),
-    "crashes": fields.Integer(description="Number of crashes triggered", required=True, attribute="mean_crashes"),
-    "current_path": fields.Integer(description="For AFL, the current path depth", required=True, attribute="mean_current_path"),
-    "execs": fields.Integer(description="Total execution count of target", required=True, attribute="mean_execs"),
-    "execs_per_sec": fields.Float(description="Number of target executions per second", required=True, attribute="mean_execs_per_sec"),
-    "hangs": fields.Integer(description="Number of hangs triggered", required=True, attribute="mean_hangs"),
-    "memory": fields.Float(description="Memory usage, in Mi", required=True, attribute="mean_memory"),
-    "pending": fields.Integer(description="For AFL, number of unexplored paths", required=True, attribute="mean_pending"),
-    "pending_fav": fields.Integer(description="For AFL, number of favored unexplored paths", required=True, attribute="mean_pending_fav"),
-    "total_paths": fields.Integer(description="Number of execution paths discovered", required=True, attribute="mean_total_paths"),
-    "time": fields.DateTime(description="Timestamp", required=True),
-})
+stats_response_model = api.model(
+    "JobStatsResponse",
+    {
+        "alive": fields.Integer(
+            description="Number of fuzzing processes running",
+            required=True,
+            attribute="mean_alive",
+        ),
+        "cpu_hours": fields.Float(
+            description="Number of CPU hours consumed",
+            required=True,
+            attribute="mean_cpu_hours",
+        ),
+        "crashes": fields.Integer(
+            description="Number of crashes triggered",
+            required=True,
+            attribute="mean_crashes",
+        ),
+        "current_path": fields.Integer(
+            description="For AFL, the current path depth",
+            required=True,
+            attribute="mean_current_path",
+        ),
+        "execs": fields.Integer(
+            description="Total execution count of target",
+            required=True,
+            attribute="mean_execs",
+        ),
+        "execs_per_sec": fields.Float(
+            description="Number of target executions per second",
+            required=True,
+            attribute="mean_execs_per_sec",
+        ),
+        "hangs": fields.Integer(
+            description="Number of hangs triggered",
+            required=True,
+            attribute="mean_hangs",
+        ),
+        "memory": fields.Float(
+            description="Memory usage, in Mi", required=True, attribute="mean_memory"
+        ),
+        "pending": fields.Integer(
+            description="For AFL, number of unexplored paths",
+            required=True,
+            attribute="mean_pending",
+        ),
+        "pending_fav": fields.Integer(
+            description="For AFL, number of favored unexplored paths",
+            required=True,
+            attribute="mean_pending_fav",
+        ),
+        "total_paths": fields.Integer(
+            description="Number of execution paths discovered",
+            required=True,
+            attribute="mean_total_paths",
+        ),
+        "time": fields.DateTime(description="Timestamp", required=True),
+    },
+)
 
 parser_stats = reqparse.RequestParser()
-parser_stats.add_argument("since", type=str, help="Time to fetch stats since, as ISO 8601 timestamp", default=None)
+parser_stats.add_argument(
+    "since",
+    type=str,
+    help="Time to fetch stats since, as ISO 8601 timestamp",
+    default=None,
+)
+
 
 @api.route("/jobs/<string:job_id>/stats")
 @api.doc(params={"job_id": "Job to retrieve stats for"})
@@ -568,17 +667,35 @@ class JobStats(Resource):
         return results
 
 
-crash_model = api.model("Crash", {
-    "job_id": fields.String(description="Job that this crash was found in", required=True),
-    "type": fields.String(description="Crash type; buffer overflow, use after free, etc.", required=True),
-    "is_security_issue": fields.Boolean(description="Heuristic on whether this is likely to be a security issue"),
-    "is_crash": fields.Boolean(description="Whether this is a hard crash, versus a memory leak or hang"),
-    "sample_path": fields.String(description="Name of sample that triggers the crash", required=True),
-    "backtrace": fields.String(description="Program output upon crash", required=True),
-    "backtrace_hash": fields.String(description="Backtrace hash; used for deduplicating crashes"),
-    "return_code": fields.Integer(description="Program return code upon crash"),
-    "create_time": fields.DateTime(description="Timestamp"),
-})
+crash_model = api.model(
+    "Crash",
+    {
+        "job_id": fields.String(
+            description="Job that this crash was found in", required=True
+        ),
+        "type": fields.String(
+            description="Crash type; buffer overflow, use after free, etc.",
+            required=True,
+        ),
+        "is_security_issue": fields.Boolean(
+            description="Heuristic on whether this is likely to be a security issue"
+        ),
+        "is_crash": fields.Boolean(
+            description="Whether this is a hard crash, versus a memory leak or hang"
+        ),
+        "sample_path": fields.String(
+            description="Name of sample that triggers the crash", required=True
+        ),
+        "backtrace": fields.String(
+            description="Program output upon crash", required=True
+        ),
+        "backtrace_hash": fields.String(
+            description="Backtrace hash; used for deduplicating crashes"
+        ),
+        "return_code": fields.Integer(description="Program return code upon crash"),
+        "create_time": fields.DateTime(description="Timestamp"),
+    },
+)
 
 parser_crashes = reqparse.RequestParser()
 parser_crashes.add_argument(
@@ -588,6 +705,7 @@ parser_crashes.add_argument(
     default=None,
     required=False,
 )
+
 
 @api.route("/crashes")
 class CrashList(Resource):
@@ -601,7 +719,9 @@ class CrashList(Resource):
 
 
 @api.route("/crashes/<string:job_id>/samples/<string:sample_name>")
-@api.doc(params={"job_id": "Job to select sample from", "sample_name": "Name of sample"})
+@api.doc(
+    params={"job_id": "Job to select sample from", "sample_name": "Name of sample"}
+)
 class CrashSample(Resource):
     @api.doc(responses={404: "Sample not found"})
     def get(self, job_id, sample_name):
