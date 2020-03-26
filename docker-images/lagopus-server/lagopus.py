@@ -18,6 +18,8 @@ from flask import jsonify
 from flask_restx import Resource, Api, Model, reqparse, fields, errors
 from werkzeug.utils import secure_filename
 from requests.exceptions import ConnectionError
+import mysql.connector
+from zipfile import ZipFile
 
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError
@@ -97,6 +99,10 @@ def lagopus_get_kubeapis():
 apis = lagopus_get_kubeapis()
 
 
+class JobCreateError(Exception):
+    pass
+
+
 def lagopus_k8s_create_job(
     job_id, driver, target, cpus, memory, deadline, namespace="default"
 ):
@@ -107,7 +113,7 @@ def lagopus_k8s_create_job(
 
     env = jinja2.Environment(loader=jinja2.FileSystemLoader("./k8s/"))
 
-    # create job
+    # set up job directory with job.yaml and target zip
     job = env.get_template("job.yaml")
     jobdir = CONFIG["dirs"]["jobs"] + "/" + job_id
     pathlib.Path(jobdir).mkdir(parents=True, exist_ok=True)
@@ -123,11 +129,43 @@ def lagopus_k8s_create_job(
     jobconf["driver"] = driver
     jobconf["namespace"] = namespace
     jobconf["jobpath"] = "jobs/" + job_id
-    with open(jobdir + "/job.yaml", "w") as genjob:
+
+    jobzip_path = os.path.join(jobdir, "target.zip")
+    jobspec_path = os.path.join(jobdir, "job.yaml")
+
+    with open(jobspec_path, "w") as genjob:
         rj = job.render(**jobconf)
         jobyaml = yaml.safe_load(rj)
         genjob.write(rj)
-    shutil.copy(target, jobdir + "/" + "target.zip")
+
+    shutil.copy(target, jobzip_path)
+
+    # validate job
+    with ZipFile(jobzip_path) as targetzip:
+        # Check for corpus
+        try:
+            zip_corpus = targetzip.getinfo("corpus/")
+        except KeyError:
+            raise JobCreateError("No corpus directory")
+
+        if not zip_corpus.is_dir():
+            raise JobCreateError("corpus is not a directory")
+
+        try:
+            zip_target = targetzip.getinfo("target")
+        except KeyError:
+            raise JobCreateError("No target binary")
+
+        if zip_target.is_dir():
+            raise JobCreateError("target is a directory")
+
+        if driver == "afl":
+            try:
+                conf = targetzip.getinfo("target.conf")
+            except KeyError:
+                raise JobCreateError(
+                    "Fuzzing driver is AFL, but no afl-multicore config file named 'target.conf' found"
+                )
 
     response = ""
     try:
@@ -136,6 +174,7 @@ def lagopus_k8s_create_job(
         )
     except ApiException as e:
         app.logger.error("k8s API exception: {}".format(e))
+        raise JobCreateError(message="Kubernetes API exception: {}".format(str(e)))
     finally:
         app.logger.error("k8s API response:\n{}".format(response))
 
@@ -209,9 +248,6 @@ def lagopus_k8s_kill_job(job_id, namespace="default"):
 # ---
 # Backend
 # ---
-import mysql.connector
-from zipfile import ZipFile
-
 cnx = None
 
 
@@ -354,6 +390,15 @@ class LagopusJob(object):
         with open(savepath, "wb") as tgt:
             tgt.write(base64.b64decode(target))
 
+        # create in k8s
+        try:
+            response = lagopus_k8s_create_job(
+                job_id, driver, savepath, cpus, memory, deadline
+            )
+        except JobCreateError as e:
+            app.logger.warning("Failed to create job: {}".format(str(e)))
+            raise e
+
         # insert new job into db
         cursor = lagopus_db_cursor()
         cursor.execute(
@@ -369,9 +414,6 @@ class LagopusJob(object):
             )
         )
         cursor.close()
-
-        # create in k8s
-        lagopus_k8s_create_job(job_id, driver, savepath, cpus, memory, deadline)
 
         return self.get(job_id)
 
@@ -478,6 +520,7 @@ job_request_model = api.clone(
         ),
     },
 )
+
 job_response_model = api.clone(
     "JobResponse",
     job_base_model,
@@ -504,8 +547,13 @@ class JobList(Resource):
 
     @api.expect(job_request_model, validate=True)
     @api.marshal_with(job_response_model, code=201)
+    @api.doc(responses={201: "Job created", 400: "Bad job creation request"})
     def post(self):
-        job = LagopusJob.create(**api.payload)
+        try:
+            job = LagopusJob.create(**api.payload)
+        except JobCreateError as e:
+            errors.abort(code=400, message="Job creation failed: {}".format(str(e)))
+
         app.logger.info("Created job {}".format(job))
         return job
 
