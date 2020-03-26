@@ -124,8 +124,20 @@ $('#jobform').submit(function(event) {
             url: "api/jobs",
             data: JSON.stringify(result),
             contentType: "application/json",
-            success:function(data) {
+            statusCode: {
+              201: function(data) {
                 location.reload(true);
+              },
+              400: function(xhr, status, errorThrown) {
+                alert(xhr.responseJSON["message"]);
+              },
+              500: function(xhr, status, errorThrown) {
+                alert("Internal server error");
+              }
+            },
+            complete: function(xhr, status) {
+              $('#submitButton').text('Submit');
+              $('#submitButton').attr('disabled', false);
             }
         });
     };
