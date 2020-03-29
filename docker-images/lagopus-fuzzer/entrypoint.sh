@@ -208,9 +208,27 @@ for file in ./jobresults/crashes/*; do
     # FIXME: need to use the same invocation format as the fuzz run
     $TARGET "$file" &> output.txt
     EC=$?
+
+    if [ $EC -eq 0 ]; then
+      printf "Crash on input %s does not reproduce; pulling trace from logs\n", "$fname"
+      # Find log file corresponding to this crash
+      for LF_LOG in ./jobresults/misc/fuzz-*.log; do
+        ARTIFACT=$(basename "$(grep "Test unit written to" "$LF_LOG" | awk -F' ' '{print $NF}')")
+	if [ "$ARTIFACT" = "$fname" ]; then
+	  # FIXME: really should be parsing the whole line here; if a stack
+	  # trace is more than 300 lines this will cause issues
+          tail -n 300 "$LF_LOG" > output.txt
+	  EC=101
+	  break
+	fi
+      done
+    fi
   fi
 
   # Perform some more analysis with ClusterFuzz's crash analysis tooling
+  # FIXME: need to feed crash log and then only save the actual stack trace
+  # lines, or figure out how to get the crash analyzer to only return the stack
+  # trace instead of the entire output
   ANALYSIS_JSON=$(/analyzer/analyzer.py --outputfile output.txt --exitcode $EC)
 
   DB_SAMPLE="$fname"
