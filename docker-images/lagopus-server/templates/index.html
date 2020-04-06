@@ -135,9 +135,12 @@ $('#jobform').submit(function(event) {
                 alert("Internal server error");
               }
             },
-            complete: function(xhr, status) {
+            error: function(xhr, stat, error) {
               $('#submitButton').text('Submit');
               $('#submitButton').attr('disabled', false);
+            },
+            success: function(xhr, stat, error) {
+              location.reload(true);
             }
         });
     };
