@@ -18,7 +18,7 @@ Lagopus intends to be an alternative to ClusterFuzz with a focus on a more
 modular codebase, better hackability and first class support for on-prem
 clusters and single-node deployments.
 
-.. see-also:: :ref:`installation`
+.. seealso:: :ref:`installation`
 
 Architecture
 ------------
