@@ -12,7 +12,6 @@ Welcome to lagopus's documentation!
 
    about
    installing
-   usage
 
 
 Indices and tables
