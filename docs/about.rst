@@ -51,6 +51,11 @@ preloaded with a collection of fuzzing utilities. Each fuzzing job is run in a
 new instance of this image. In the future, support for custom containers should
 allow a choice of platforms.
 
+Here's a diagram that probably won't make much sense, but at least provides
+some overview of how the pieces fit together:
+
+.. figure:: ./figures/lagopus-architecture.png
+
 
 Why Kubernetes
 ^^^^^^^^^^^^^^
