@@ -9,6 +9,9 @@ Distributed fuzzing for the rest of us.
 
 ## About
 
+*Note*: This is early access software with no production-ready releases yet.
+It works, but theres's a lot left to do to make it easy to use.
+
 Lagopus is a distributed fuzzing application built on top of Kubernetes. It
 allows you to fuzz arbitrary targets using clustered compute resources. You
 specify the target binary, fuzzing driver (`afl` or `libFuzzer`), corpus, and
