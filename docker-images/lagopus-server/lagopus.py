@@ -482,6 +482,7 @@ def apply_caching(response):
 ## API
 
 app.config["UPLOAD_FOLDER"] = tempfile.mkdtemp()
+# XXX: Fixme!
 app.config["SECRET_KEY"] = "389afsd89j34fasd"
 
 
