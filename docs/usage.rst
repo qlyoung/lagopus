@@ -6,7 +6,7 @@ Usage
 
 .. note::
 
-   TODO: add actual usage instructions :)
+   TODO: add screenshots
 
 
 The Lagopus user interface is exposed as a web application. It is served on
@@ -32,6 +32,20 @@ reported by Kubernetes and the number of running jobs.
 
 To the right of the summary information is the "New Job" button that is used to
 create new fuzzing jobs.
+
+Jobs
+----
+
+Lagopus is designed around the concept of a ``Job``. A job is an individual
+fuzzing session. Associated with a job are resources such as the containers
+used to run it, the input zip defining it, its results, its location on the
+disk, and so on.
+
+Each Job has a page in the interface that provides all information about it.
+This includes its current status, fine-grained statistics about the progress of
+fuzzing, a table of any discovered crashes, code coverage information (not yet
+implemented), its resource limits, and what node it is running on. This job
+page is accessed by clicking on the name of the job from the Dashboard.
 
 Creating Jobs
 ^^^^^^^^^^^^^
@@ -70,21 +84,6 @@ fuzzing takes place. Use it to install config files, packages, shared libraries
 and anything else needed to run the target. Remember that the fuzzing container
 is an Ubuntu 18.04 image, so you have access to all of Ubuntu's apt sources and
 can safely install any packages you need.
-
-
-Jobs
-----
-
-Lagopus is designed around the concept of a ``Job``. A job is an individual
-fuzzing session. Associated with a job are resources such as the containers
-used to run it, the input zip defining it, its results, its location on the
-disk, and so on.
-
-Each Job has a page in the interface that provides all information about it.
-This includes its current status, fine-grained statistics about the progress of
-fuzzing, a table of any discovered crashes, code coverage information (not yet
-implemented), its resource limits, and what node it is running on. This job
-page is accessed by clicking on the name of the job from the Dashboard.
 
 
 Crashes
