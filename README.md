@@ -166,10 +166,12 @@ Planned:
 - Corpus management
 - More fuzzers
 - Performance audit
+- TLS support
 - Security (always last :-)
 
 Wishlist:
 
+- Authentication
 - Docker-compose support
 - Reduce k8s tendrils
 - Reduce vendored code
