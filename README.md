@@ -156,9 +156,9 @@ Complicated:
 
 Planned:
 
-- ~~Backtrace collection~~ Done
-- ~~Job monitoring~~ Done
-- ~~Job input validation~~ Done
+- ~~Backtrace collection~~ :heavy_check_mark:
+- ~~Job monitoring~~ :heavy_check_mark:
+- ~~Job input validation~~ :heavy_check_mark:
 - Source-based code coverage viewer
 - Better deployment process
 - Job tags
