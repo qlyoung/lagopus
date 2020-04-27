@@ -3,8 +3,11 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to lagopus's documentation!
-===================================
+Lagopus User Guide
+==================
+
+Lagopus is a distributed fuzzing platform. It allows you to run multiple
+fuzzing jobs across multiple machines.
 
 .. toctree::
    :maxdepth: 2
@@ -12,6 +15,7 @@ Welcome to lagopus's documentation!
 
    about
    installing
+   usage
 
 
 Indices and tables
