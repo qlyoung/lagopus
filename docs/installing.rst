@@ -9,8 +9,8 @@ How to install Lagopus!
 .. note::
 
    Installing Lagopus is rather difficult right now, since it's still very much
-   in development. You will probably have a hard time unless you already have
-   some operational experience with Kubernetes. This setup process will be
+   a work in progress. You will probably have a hard time unless you already
+   have some operational experience with Kubernetes. This setup process will be
    improved prior to the initial release to make it easier and more accessible.
 
 The installation process for Lagopus is roughly:
@@ -23,13 +23,15 @@ The installation process for Lagopus is roughly:
 4. Clone the Lagopus repository
 5. Edit the Kustomizations to reflect your deployment choices; right now, these
    are:
+
    - What IP you want Lagopus to be accessible from
    - The location of the NFS share configured in step 3
-6. Build the resource descriptor file (``lagopus.yaml``) using the provided
+
+6. Build the k8s resource descriptor file (``lagopus.yaml``) using the provided
    build script
 7. Deploy Lagopus on the cluster by applying the resource file with ``kubectl``
 
-Presently, the docker images are stored on my personal Docker Hub instance, but
+Presently, the Docker images are stored on my personal Docker Hub instance, but
 those will be moved to something more offical before the initial release.
 
 Guide
@@ -49,7 +51,7 @@ acceptable, though it invokes virtualization overhead.
 
 If you already have a cluster set up, here is an Ansible playbook to do all of
 the steps described if your nodes are running microk8s on Ubuntu 18.04. Change
-`fuzzing_user` to any root-privileged account.
+``fuzzing_user`` to any root-privileged account.
 
 .. code-block:: yaml
 
@@ -147,12 +149,14 @@ the steps described if your nodes are running microk8s on Ubuntu 18.04. Change
      If the service fails, check ``journalctl -u snap.microk8s.daemon-kubelet``
      for debugging logs.
 
-5. Verify your cluster is configured on the control plane node, e.g.::
+5. Verify your cluster is configured on the control plane node, e.g.:
 
-     root@k8s-master:~# kubectl get no
-     NAME         STATUS   ROLES    AGE     VERSION
-     microk8s-1   Ready    <none>   38m     v1.17.0
-     k8s-master   Ready    <none>   5d15h   v1.17.0
+   .. code-block:: console
+
+      root@k8s-master:~# kubectl get no
+      NAME         STATUS   ROLES    AGE     VERSION
+      microk8s-1   Ready    <none>   38m     v1.17.0
+      k8s-master   Ready    <none>   5d15h   v1.17.0
 
    All nodes should read ``Ready``.
 
@@ -194,7 +198,9 @@ On Ubuntu 18.04:
 
      apt install -y nfs-common && showmount -e <nfs_host>
 
-  If it's working, you should see::
+  If it's working, you should see:
+
+  .. code-block:: console
 
      Export list for <nfs_host>:
      /opt/lagopus_storage ::
@@ -206,19 +212,20 @@ Building
 
 ``cd`` into the repository. Make a couple kustomizations:
 
-- Set your desired IP range, on which the Lagopus web app / API server should
-  be accessible (unfortunately this is a necessary complexity to allow access
-  on port 80) in the following file::
+- Set the IP range on which the Lagopus web app / API server should be
+  accessible in the following file:
 
-     k8s/dev/metallb-ips.yaml
+     :file:`k8s/dev/metallb-ips.yaml`
 
-- Set the path to your NFS share::
+- Set the path to your NFS share:
 
-     k8s/dev/nfs-location.yaml
+     :file:`k8s/dev/nfs-location.yaml`
 
-Then::
+Then:
 
-   ./build.sh
+   .. code-block:: console
+
+      ./build.sh
 
 This builds the necessary docker images and pushes them to DockerHub, generates
 the necessary resources YAMLs and concatenates them all into ``lagopus.yaml``.
@@ -231,11 +238,16 @@ To install Lagopus onto the cluster::
 
    kubectl apply -f ./lagopus.yaml
 
-To get the external IP of the Web interface::
+Lagopus will select one of the IPs out of the range you configured during
+installation to expose the web interface. To get this IP:
+
+.. code-block:: console
 
    kubectl get service | grep lagopus-server | tr -s ' ' | cut -d' ' -f4
 
-Port 80, no TLS.
+Supposing the IP address is A.B.C.D, you can access the web interface by
+navigating to http://A.B.C.D/ in your browser. Lagopus does not yet support
+TLS.
 
 Uninstalling
 ^^^^^^^^^^^^

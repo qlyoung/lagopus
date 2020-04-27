@@ -12,23 +12,23 @@ https://docs.lagopus.io/
 ## About
 
 *Note*: This is early access software with no production-ready releases yet.
-It works, but theres's a lot left to do to make it easy to use.
+It works, but there's a lot left to do to make it easy to use.
 
 Lagopus is a distributed fuzzing application built on top of Kubernetes. It
 allows you to fuzz arbitrary targets using clustered compute resources. You
 specify the target binary, fuzzing driver (`afl` or `libFuzzer`), corpus, and
 job parameters such as #CPUs, memory and TTL. Lagopus then creates a container
-to for the fuzzing job and runs it on an available node.
+for the fuzzing job and runs it on an available cluster node.
 
-Lagopus also takes much of the manual work out of analyzing fuzzing results.
-When a fuzzing run finishes, Lagopus collects any crashing inputs and their
-stack traces and analyses them for type and severity. Results are collated,
+Lagopus takes much of the manual work out of analyzing fuzzing results. When a
+fuzzing job finishes, Lagopus collects any crashing inputs and their stack
+traces and analyses them for type and severity. Results are collated,
 deduplicated and stored in a database. The generated corpus is cleaned and
 minimized. All results are deposited in your NFS share for later use.
 
 Lagopus has a web interface for creating jobs, monitoring progress and fuzzing
-statistics, and viewing crash analyses. This interface is built on top of an
-HTTP API which can be used directly for integration with external tools such as
+statistics, and viewing crash analyses. This interface is built on top of a
+HTTP REST API which can be used for integration with external tools such as
 CI/CD systems and test suites.
 
 Lagopus runs on Kubernetes, so it runs as well in on-prem, bare metal
@@ -91,9 +91,12 @@ See the docs for:
      shared libraries; what do?
 
   A: I've had good success with [ermine](http://magicermine.com/index.html).
-     Statifier will likely not work due to ASLR. In the future I would like to
-     provide support for image customizations, or custom images.
+     Statifier will likely not work due to ASLR.
 
+     If you can't statically link your target, then you can simply copy the
+     necessary dependencies into the job zip and install them via
+     `provision.sh`, as described in the
+     [docs](http://docs.lagopus.io/en/latest/usage.html#creating-jobs).
 
 ## Prior Art
 
@@ -103,21 +106,6 @@ Other projects in the same vein.
   which are used in Lagopus
 - [LuckyCat](https://github.com/fkie-cad/LuckyCAT) (greetz!)
 
-
-## Limitations
-
-This is also a todo list.
-
-Lagopus cannot distribute multithreaded / multiprocess jobs across nodes.
-Distribution is at the job level. This means a small cluster where each node
-has a high CPU count is preferable to a large cluster of smaller nodes.
-
-Lagopus does not (yet) offer corpus minimization. You must maintain your corpi.
-
-Lagopus depends on the existence of an NFS share external to itself to store
-job data.
-
-Lagopus runs on Kubernetes.
 
 ## Prerequisites
 
@@ -152,21 +140,41 @@ understand how k8s handles:
 
 ## Todo
 
+Complicated:
+
+- Lagopus cannot distribute multithreaded / multiprocess jobs across nodes.
+  Distribution is at the job level; a single job is always contained to a
+  single node (but not vice versa). This means a small cluster where each node
+  has a high CPU count is preferable to a larger cluster of smaller nodes.
+
+- Lagopus depends on the existence of an NFS share external to itself to store
+  job data. This isn't really a limitation, but it slightly complicates initial
+  setup.
+
+- Lagopus runs on Kubernetes, which can be a significant barrier for people who
+  aren't familiar with it.
+
+Planned:
+
 - ~~Backtrace collection~~ Done
 - ~~Job monitoring~~ Done
 - ~~Job input validation~~ Done
-- Source coverage analysis
+- Source-based code coverage viewer
 - Better deployment process
 - Job tags
 - CLI client
 - Corpus management
-- Docker-compose support
-- Reduce k8s tendrils
-- Reduce vendored code
-- Python support
 - More fuzzers
 - Performance audit
 - Security (always last :-)
+
+Wishlist:
+
+- Docker-compose support
+- Reduce k8s tendrils
+- Reduce vendored code
+- Support for interpreted targets
+- Support for non-x64 targets
 
 ## Dev Notes
 
@@ -183,7 +191,7 @@ debugging.
 - Lagopus was using gdb exploitable ^ to analyze crashes, but exploitable is
   currently turned off because its heuristics see ASAN terminations as clean
   exits. Currently the crash analysis code is lifted from ClusterFuzz, as it
-  already has all the gritty regex's and classifiers sorted out.
+  already has all the gritty regexes and classifiers sorted out.
 
 - `afl` requires sysctl `kernel.core_pattern=core` to get core files. k8s has
   support for allowing nodes to allow pods to set sysctls (pods also have
@@ -215,7 +223,7 @@ debugging.
   exclusively, which solves the issue with `/proc` by sidestepping it
   completely.
 
-  However, again there is a caveat. A pecularity of container runtimes is that
+  However, again there is a caveat. A peculiarity of container runtimes is that
   even when containers are assigned to specific CPUs, the containers still see
   all of the host CPUs and don't actually know which of them have been assigned
   to it. This again poses some complications with `afl`'s CPU pinning

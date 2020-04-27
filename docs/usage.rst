@@ -11,7 +11,7 @@ Usage
 
 The Lagopus user interface is exposed as a web application. It is served on
 port 80 at the IP address you configured during the :ref:`installation process
-<installation>`. There are several components, each available on a differet
+<installation>`. There are several components, each available on a different
 part of the web interface.
 
 The following pages are each linked in the sidebar of the web interface.
@@ -39,13 +39,13 @@ Jobs
 Lagopus is designed around the concept of a ``Job``. A job is an individual
 fuzzing session. Associated with a job are resources such as the containers
 used to run it, the input zip defining it, its results, its location on the
-disk, and so on.
+storage volume, and so on.
 
 Each Job has a page in the interface that provides all information about it.
-This includes its current status, fine-grained statistics about the progress of
-fuzzing, a table of any discovered crashes, code coverage information (not yet
-implemented), its resource limits, and what node it is running on. This job
-page is accessed by clicking on the name of the job from the Dashboard.
+This includes its current status, fine-grained statistics, progress information
+for running jobs, a table of any discovered crashes, code coverage information
+(not yet implemented), its resource limits, and what node it is running on.
+This page is accessible by clicking on the name of the job from the Dashboard.
 
 Creating Jobs
 ^^^^^^^^^^^^^
@@ -82,23 +82,27 @@ The provision script allows you to customize the container used to run the job.
 It will probably be necessary for most targets. This script is run before any
 fuzzing takes place. Use it to install config files, packages, shared libraries
 and anything else needed to run the target. Remember that the fuzzing container
-is an Ubuntu 18.04 image, so you have access to all of Ubuntu's apt sources and
-can safely install any packages you need.
+is an Ubuntu 18.04 image, so you have access to all of Ubuntu's apt
+repositories and can safely install any packages you need. Set it up however
+you want; if you want to download some file, build some program from source,
+delete system directories, whatever you want, feel free. Just don't delete
+``/workdir``, ``/<jobname>``, or any of the fuzzing tools ;).
 
 
 Crashes
 -------
 
-The main goal of any fuzzing system is to find bugs in target applications.
-When a fuzzing job finds a crash, Lagopus automatically collects information
-about the crash and imports it into its crash database. The contents of this
-database are viewable via the Crashes page.
+The main goal of any fuzzing system is to find bugs in target programs. When a
+fuzzing job finds a crash, Lagopus automatically collects information about the
+crash and imports it into its crash database. The contents of this database are
+accessible via the Crashes page.
 
 Each entry in the database contains the name of the job it is associated with
-and the exit code. Lagopus also tries to describe the type of the crash by
-looking at the output of the program for the crashing input. For example,
-Lagopus understands ASAN output and will store the crash type (e.g. buffer
-overflow) in the Type field.
+and the exit code of the target when run with the crashing input. Lagopus also
+tries to describe the type of the crash by looking at the output of the program
+when run with the crashing input. For example, Lagopus understands
+ASAN/MSAN/TSAN/UBSAN output and will store the crash type reported by the
+sanitizer (e.g. buffer overflow, race condition, etc.) in the ``Type`` field.
 
 .. note::
 
@@ -106,12 +110,24 @@ overflow) in the Type field.
    ClusterFuzz, so credit goes to Google for that piece.
 
 
-The output of the program when run on the crashing input is available in the
-"Backtrace" column.
+The output of the program when run with the crashing input is available in the
+``Backtrace`` column.
 
 Each crash table entry also has a link to the fuzzing input that caused the
 crash in the "Sample" column. Clicking this link downloads the input. This is
 useful for local debugging.
+
+.. note::
+
+   Depending on the target and fuzzer, the backtrace may show a successful run
+   and the sample provided for download may not reproduce the crash. This
+   typically occurs with libFuzzer targets that accumulate state; the crash may
+   only reproduce when 100 inputs are run in a particular sequence, building up
+   the state necessary to create the error condition within the target. After
+   finding a crashing input, Lagopus attempts to re-run the target with the
+   input to generate a clean backtrace for analysis. If it doesn't cause a
+   crash, Lagopus will fall back to scraping the job logs to get the backtrace,
+   if available. When this happens, the exit code is logged as 101.
 
 If you want to see crashes only for a particular job, go to that job's page and
 click the "Crashes" tab.
@@ -120,18 +136,18 @@ click the "Crashes" tab.
 API
 ---
 
-Lagopus exposes a REST API used to control it. The web interface controls
-Lagopus solely through this API to ensure that it stays up to date and covers
-all public functionality. The link in the sidebar brings up Swagger-generated
-API docs. Each endpoint has a documentation blurb associated with it that
-explains the purpose and usage of the endpoint.
+Lagopus exposes an HTTP REST API. The web interface controls Lagopus solely
+through this API to ensure that it stays up to date and covers all public
+functionality. The ``API`` link in the sidebar brings up Swagger-generated API
+docs. Each endpoint has a documentation blurb associated with it that explains
+the purpose and usage of the endpoint.
 
-The API can be used to create and monitor jobs, view and download crashes, and
-anything else achievable via the web interface.
+The API provides programmatic access to any task achievable via the web
+interface.
 
 Because Lagopus itself has no facilities for recurring jobs, CI integration,
-email remote reporting, and other desirable features, the goal of the API is to
-allow as much flexibility in this space as possible. For instance, if you want
-to kick off a fuzz job after each build of your project in CI, you can simply
-build a job zip as part of your CI task and POST it to the job creation
+email reporting, and other desirable features, the goal of the API is to allow
+as much flexibility and extensibility as possible. For instance, if you want to
+kick off a fuzz job after each build of your project in CI, you can simply
+build a job zip as one of your CI artifacts and POST it to the job creation
 endpoint.
