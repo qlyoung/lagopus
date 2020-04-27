@@ -152,9 +152,9 @@ understand how k8s handles:
 
 ## Todo
 
-- ~~Backtrace collection~~ Done
-- ~~Job monitoring~~ Done
-- ~~Job input validation~~ Done
+- ~~Backtrace collection~~ :heavy_check_mark:
+- ~~Job monitoring~~ :heavy_check_mark:
+- ~~Job input validation~~ :heavy_check_mark:
 - Source coverage analysis
 - Better deployment process
 - Job tags
