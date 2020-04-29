@@ -1,12 +1,14 @@
 <p align="center">
-<img src="https://github.com/qlyoung/lagopus/blob/master/lagopus.svg" alt="Icon" width="20%"/>
+<img src="https://github.com/qlyoung/lagopus/blob/master/lagopus.svg" alt="The project logo; a stylized Arctic fox head" width="20%"/>
 </p>
 
 # lagopus
 
-Distributed fuzzing for the rest of us.
+Distributed fuzzing platform on Kubernetes.
 
 https://docs.lagopus.io/
+
+![Screenshots of web interface](lagopus-demo.gif)
 
 
 ## About
