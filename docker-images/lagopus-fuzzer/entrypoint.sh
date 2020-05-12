@@ -193,6 +193,10 @@ elif [ "$DRIVER" == "libFuzzer" ]; then
 
   # logs - need to be copied before minimize, otherwise lf will overwrite them
   cp fuzz*.log jobresults/misc/
+
+  # Coverage data
+  cp ./*.gcda jobresults/misc/
+  cp ./*.profraw jobresults/misc/
 fi
 
 for file in ./jobresults/crashes/*; do
