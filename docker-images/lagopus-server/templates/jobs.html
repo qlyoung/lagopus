@@ -105,14 +105,16 @@
                                   $("#summary_live_fuzzers").text(Math.ceil(data[data.length - 1]['alive']));
                                   $("#summary_paths").text(Math.ceil(data[data.length - 1]['total_paths']));
                                   $("#summary_execs").text(Math.ceil(data[data.length - 1]['execs']));
-                                  if (data["status"] != "Complete")
-                                      setTimeout(update_summary, 15000);
                               }
                           });
                           if (data["status"] == "Complete") {
                               $("#summary_status").removeClass("badge-primary");
                               $("#summary_status").addClass("badge-success");
                           }
+                      },
+                      complete: function(xhr, textStatus) {
+                          if (!('status' in xhr.responseJSON) || xhr.responseJSON["status"] != "Complete")
+                              setTimeout(update_summary, 5000);
                       }
                   });
               }
