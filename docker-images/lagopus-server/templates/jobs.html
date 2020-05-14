@@ -64,6 +64,9 @@
     {% include "crashtable.html" %}
     <script>
       lagopus_crashtable("{{ job["job_id"] }}");
+      $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+        $("#dataTable").DataTable().columns.adjust().draw();
+      });
     </script>
   </div>
   <div class="tab-pane fade show active" id="stats" role="tabpanel" aria-labelledby="stats-tab">
