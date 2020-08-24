@@ -1,0 +1,63 @@
+# RBAC rules. Basically gives the 'default' ServiceAccount the ability to
+# manage Jobs resources, and to read Node resources. lagopus-server is assigned
+# to the 'default' ServiceAccount by default and thus gains these permissions.
+#
+# Ideally lagopus-server should have its own ServiceAccount, though.
+---
+# Define a Role that allows managing Jobs resources.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: default
+  name: k8s-api-access
+rules:
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+# Define a RoleBinding that grants the above Role to the 'default'
+# ServiceAccount.
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  namespace: default
+  name: k8s-api-access-binding
+subjects:
+- kind: ServiceAccount
+  name: default
+  apiGroup: ""
+roleRef:
+  kind: Role
+  name: k8s-api-access
+  apiGroup: ""
+---
+# Define a ClusterRole that allows read access to Nodes resources. This type is
+# different because you have to use ClusterRole's to handle RBAC rules for
+# things that aren't namespaced; permissions defined in them apply to the whole
+# cluster
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  # "namespace" omitted since ClusterRoles are not namespaced
+  name: k8s-api-access-cluster
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "watch"]
+---
+# Define a ClusterRoleBinding that grants the above ClusterRole to the
+# 'default' ServiceAccount.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k8s-api-access-cluster-binding
+subjects:
+- kind: ServiceAccount
+  namespace: default
+  name: default
+  apiGroup: ""
+roleRef:
+  kind: ClusterRole
+  name: k8s-api-access-cluster
+  apiGroup: rbac.authorization.k8s.io
+

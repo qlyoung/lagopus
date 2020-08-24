@@ -1,0 +1,42 @@
+Lagopus is accessible in two ways:
+
+- Web interface: http://{{ (split "/" .Values.lagopusIP)._0 }}:80
+- REST API: http://{{ (split "/" .Values.lagopusIP)._0 }}:80/api
+
+If you visit that API endpoint in the browser you should see the API docs.
+
+General documentation is at:
+https://docs.lagopus.io/
+
+If you are encountering issues, please report them at:
+https://github.com/qlyoung/lagopus/issues
+
+You can view the server logs like so:
+
+   kubectl logs lagopus-server --container lagopus-server
+
+---
+Troubleshooting:
+
+When you installed this chart, you --set a value for lagopusIP. That value
+should have had the form:
+
+   a.b.c.d/32
+
+If it didn't, the above section that tells you how to access Lagopus probably
+won't work and you should uninstall the chart and install it again using that
+form. Unfortunately you can't just provide an IP since the underlying thing
+used to make the web interface accessible wants a range of addresses (a
+prefix). I usually just pass a /32 to give it a range with only 1 address in
+it. If for some reason you want to use an address pool, you can, but in that
+case MetalLB will select one address from that pool and you'll need to get that
+IP from kubectl, since I can't read the k8s API from this document in order to
+tell you :)
+
+To manually find the IP:
+
+   kubectl get service lagopus-server
+
+It's the one under "EXTERNAL-IP". If it says "<pending>" something is screwed
+up, try reinstalling the chart using --set lagopusIP=a.b.c.d/32 as described
+above. If that doesn't work open an issue.

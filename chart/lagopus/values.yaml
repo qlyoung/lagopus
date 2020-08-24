@@ -1,0 +1,11 @@
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# The hostname or IP address of the NFS server
+# lagopusStorageServer: nonexistent
+
+# The path of the NFS share on that server that lagopus should use for storage
+# lagopusStoragePath: /nonexistent
+
+# The IP address lagopus should make its web interface accessible on
+# lagopusIP: a.b.c.d/32

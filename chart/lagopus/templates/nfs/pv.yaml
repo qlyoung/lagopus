@@ -1,0 +1,15 @@
+apiVersion: v1    
+kind: PersistentVolume    
+metadata:    
+  name: nfs 
+spec:    
+  storageClassName: manual    
+  capacity:    
+    storage: 5Gi    
+  accessModes:    
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain 
+  nfs:
+    path: {{ required "Please specify the NFS share path with --set lagopusStoragePath=<path>" .Values.lagopusStoragePath }}
+    server: {{ required "Please specify the NFS server with --set lagopusStorageServer=<host>" .Values.lagopusStorageServer }}
+    readOnly: false
