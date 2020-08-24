@@ -1,5 +1,5 @@
 <p align="center">
-<img src="https://github.com/qlyoung/lagopus/blob/master/lagopus.svg" alt="The project logo; a stylized Arctic fox head" width="20%"/>
+<img src="https://github.com/qlyoung/lagopus/blob/master/etc/lagopus.svg" alt="The project logo; a stylized Arctic fox head" width="20%"/>
 </p>
 
 # lagopus
@@ -8,7 +8,7 @@ Distributed fuzzing platform on Kubernetes.
 
 https://docs.lagopus.io/
 
-![Screenshots of web interface](lagopus-demo.gif)
+![Screenshots of web interface](etc/lagopus-demo.gif)
 
 
 ## About
