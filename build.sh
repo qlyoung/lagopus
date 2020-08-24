@@ -18,5 +18,5 @@ build_tag_push "lagopus-db"
 
 rm lagopus.yaml
 {
-	microk8s.kubectl kustomize k8s/dev/
+	kubectl kustomize k8s/dev/
 } >> $WD/lagopus.yaml
