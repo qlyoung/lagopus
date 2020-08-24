@@ -3,6 +3,7 @@ commonLabels:
 resources:
   - server/server-pod.yaml
   - server/server-service.yaml
+  - server/server-rbac.yaml
   - nfs/pv.yaml
   - nfs/pvc.yaml
   - namespaces/namespace.yaml
