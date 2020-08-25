@@ -21,15 +21,7 @@ The installation process for Lagopus is roughly:
    right now. The necessary changes can be done with Ansible to make it easier.
 3. Create an NFS share accessible by the cluster
 4. Clone the Lagopus repository
-5. Edit the Kustomizations to reflect your deployment choices; right now, these
-   are:
-
-   - What IP you want Lagopus to be accessible from
-   - The location of the NFS share configured in step 3
-
-6. Build the k8s resource descriptor file (``lagopus.yaml``) using the provided
-   build script
-7. Deploy Lagopus on the cluster by applying the resource file with ``kubectl``
+5. Run ``helm install charts/lagopus``
 
 Presently, the Docker images are stored on my personal Docker Hub instance, but
 those will be moved to something more offical before the initial release.
@@ -44,14 +36,16 @@ Cluster Configuration
 ^^^^^^^^^^^^^^^^^^^^^
 
 * Recommended platform: Ubuntu 18.04
-* Recommended k8s: `microk8s <https://microk8s.io/>`_
+* Recommended k8s: `microk8s <https://microk8s.io/>`_ or `k3s <https://k3s.io/>`_
+
+(k3s is better but all the instructions here are for microk8s)
 
 If you only have 1 node, `minikube <https://minikube.sigs.k8s.io/docs/>`_ is
 acceptable, though it invokes virtualization overhead.
 
 If you already have a cluster set up, here is an Ansible playbook to do all of
 the steps described if your nodes are running microk8s on Ubuntu 18.04. Change
-``fuzzing_user`` to any root-privileged account.
+``qlyoung`` to any root-privileged account.
 
 .. code-block:: yaml
 
@@ -210,42 +204,45 @@ At this point the cluster is set up to run fuzzing jobs.
 Building
 ^^^^^^^^
 
-``cd`` into the repository. Make a couple kustomizations:
+This is for development purposes, you do not need to do this if you just want
+to deploy the latest release.
 
-- Set the IP range on which the Lagopus web app / API server should be
-  accessible in the following file:
+``cd`` into the repository. Make your changes. Open ``build.sh`` and edit the
+repository information to point at your own Docker repository. Then run
+``build.sh`` to build and push the images.
 
-     :file:`k8s/dev/metallb-ips.yaml`
-
-- Set the path to your NFS share:
-
-     :file:`k8s/dev/nfs-location.yaml`
-
-Then:
-
-   .. code-block:: console
-
-      ./build.sh
-
-This builds the necessary docker images and pushes them to DockerHub, generates
-the necessary resources YAMLs and concatenates them all into ``lagopus.yaml``.
+After that you need to replace all the hardcoded references to my repo in the
+Helm templates with yours (look for ``qlyoung`` in
+``chart/lagopus/templates``).
 
 
 Installing
 ^^^^^^^^^^
 
-To install Lagopus onto the cluster::
+To install Lagopus onto the cluster, install Helm 3. Then::
 
-   kubectl apply -f ./lagopus.yaml
+   helm install --set lagopusStorageServer=<nfs_host>,lagopusStoragePath=<nfs_share_path>,lagopusIP=<prefix> <release_name> ./lagopus
+
+where:
+
+- ``nfs_host`` is the hostname of your nfs server
+- ``nfs_share_path`` is the path of the share you want lagopus to use as its
+  storage
+- ``prefix`` is an address range from which to select the IP address to host
+  the lagopus web interface and API on. If you want to use a specific address,
+  pass it as a /32 prefix (e.g. ``1.2.3.4/32``). This address should be
+  directly connected relative to the external cluster network; for instance, if
+  your cluster machines have addresses in ``10.0.1.0/24``, a reasonable choice
+  might be ``10.0.1.169/32``.
 
 Lagopus will select one of the IPs out of the range you configured during
-installation to expose the web interface. To get this IP:
+installation to expose the web interface. To get this address:
 
 .. code-block:: console
 
    kubectl get service | grep lagopus-server | tr -s ' ' | cut -d' ' -f4
 
-Supposing the IP address is A.B.C.D, you can access the web interface by
+Supposing the IP address is ``A.B.C.D``, you can access the web interface by
 navigating to http://A.B.C.D/ in your browser. Lagopus does not yet support
 TLS.
 
@@ -256,14 +253,4 @@ To remove Lagopus from the cluster, delete all its resources.
 
 .. warning::
 
-   Note the ``--all`` on the last command. This will delete everything in the
-   default Kubernetes namespace. DO NOT do this if you have other things
-   running on your cluster. If you do, you probably know how to delete
-   resources from k8s and do not need these instructions.
-
-::
-
-   kubectl delete -f lagopus.yaml
-   kubectl delete jobs --all
-
-
+   helm uninstall charts/lagopus
