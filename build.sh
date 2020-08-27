@@ -16,7 +16,7 @@ build_tag_push "lagopus-server"
 build_tag_push "lagopus-scanner"
 build_tag_push "lagopus-db"
 
-rm lagopus.yaml
-{
-	kubectl kustomize k8s/dev/
-} >> $WD/lagopus.yaml
+# rm lagopus.yaml
+# {
+# 	kubectl kustomize k8s/dev/
+# } >> $WD/lagopus.yaml
