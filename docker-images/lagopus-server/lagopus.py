@@ -303,6 +303,7 @@ class LagopusCrash(object):
         job_id = job_id if job_id else "%"
         cursor.execute(query, {"job_id": job_id})
         result = cursor.fetchall()
+        cursor.close()
         return result
 
     def get_sample(self, job_id, sample_name):
@@ -358,6 +359,8 @@ class LagopusJob(object):
                 {"status": job["status"], "job_id": job["name"]},
             )
 
+        cursor.commit()
+
         # fetch from db
         cursor = lagopus_db_cursor()
         if job_id:
@@ -366,7 +369,9 @@ class LagopusJob(object):
             )
         else:
             cursor.execute("SELECT * FROM jobs")
+
         result = cursor.fetchall()
+        cursor.close()
 
         if job_id and result:
             return result[0]
@@ -409,6 +414,7 @@ class LagopusJob(object):
                 create_timestamp,
             )
         )
+        cursor.commit()
         cursor.close()
 
         return self.get(job_id)
