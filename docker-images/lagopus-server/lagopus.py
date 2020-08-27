@@ -6,6 +6,7 @@
 import os
 import base64
 import tempfile
+import json
 
 from flask import Flask, Blueprint
 from flask import render_template
@@ -371,6 +372,8 @@ class LagopusJob(object):
             cursor.execute("SELECT * FROM jobs")
 
         result = cursor.fetchall()
+
+        app.logger.info(json.dumps(result, default=lambda x: x.__str__()))
         cursor.close()
 
         if job_id and result:
