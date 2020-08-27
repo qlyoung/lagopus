@@ -1,2 +1,2 @@
-mysql-connector-python
+psycopg2
 pyaml

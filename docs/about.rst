@@ -37,9 +37,9 @@ Lagopus.  It talks to the k8s API to manage cluster resources, primarily to
 spin up containers for running fuzzing jobs. It is stateless; application state
 is stored in ``lagopus-db``.
 
-The second is ``lagopus-db``, which is just a containerized MySQL instance that
-provides the application database. Details on jobs, crashes, corpuses, etc. are
-all stored here.
+The second is ``lagopus-db``, which is just a containerized PostgreSQL instance
+that provides the application database. Details on jobs, crashes, corpuses,
+etc. are all stored here.
 
 The third is ``lagopus-scanner``. When fuzzing jobs complete, they dump their
 artifacts - minimized corpuses, crashing inputs, and logs - to the Lagopus

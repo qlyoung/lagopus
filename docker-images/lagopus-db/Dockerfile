@@ -1,7 +1,8 @@
-FROM mysql:8.0
+FROM postgres:9.6.19
 
 COPY schema.sql /docker-entrypoint-initdb.d/schema.sql
-ENV MYSQL_ROOT_PASSWORD=lagopus
-ENV MYSQL_DATABASE=lagopus
+ENV POSTGRES_USER=lagopus
+ENV POSTGRES_PASSWORD=lagopus
+ENV POSTGRES_DB=lagopus
 
-EXPOSE 3306
+EXPOSE 5432

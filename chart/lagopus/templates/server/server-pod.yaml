@@ -24,11 +24,11 @@ spec:
     image: qlyoung/lagopus-db
     ports:
     - containerPort: 3306
-      name: mysql
+      name: postgres
     volumeMounts:
     - name: nfsvol
-      mountPath: /var/lib/mysql
-      subPath: databases/mysql
+      mountPath: /var/lib/postgresql
+      subPath: databases/postgresql
   - name: influxdb
     image: influxdb
     ports:

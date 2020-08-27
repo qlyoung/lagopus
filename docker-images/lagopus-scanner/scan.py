@@ -11,13 +11,13 @@ from pathlib import Path
 from zipfile import ZipFile
 from collections import defaultdict
 
-import mysql.connector
+import psycopg2
 
 DBCONF = {
-    "user": "root",
+    "user": "lagopus",
     "password": "lagopus",
     "host": "localhost",
-    "database": "lagopus",
+    "dbname": "lagopus",
     "raise_on_warnings": True,
     "tables": ["jobs", "crashes"],
 }
@@ -25,7 +25,7 @@ DBCONF = {
 
 def process_jobresults(jobid, jobresult_zip, crashdb, cnx):
     """
-    Read crashes.db and export crash information into MySQL for use by the
+    Read crashes.db and export crash information into database for use by the
     server.
 
     :param jobid: name of the job we are processing, same as the job
@@ -35,24 +35,24 @@ def process_jobresults(jobid, jobresult_zip, crashdb, cnx):
     :param cnx: database connection, or None to skip export
     """
     if not cnx:
-        print("No MySQL connection provided, won't export")
+        print("No database connection provided, won't export")
 
     crashdb = jobresult_zip.extract(crashdb)
 
-    def export_to_mysql(entry, mysql_cnx):
+    def export_to_db(entry, cnx):
         """
-        Export a crash into mysql.
+        Export a crash into database.
 
         :param entry: row from crashdb as dictionary
-        :param mysql_cnx: connection to MySQL
+        :param cnx: connection to database
         """
-        mysql_cursor = mysql_cnx.cursor()
+        cursor = cnx.cursor()
 
         entry = defaultdict(lambda: None, entry)
 
         query = "INSERT INTO crashes (job_id, type, is_security_issue, is_crash, sample_path, backtrace, backtrace_hash, return_code, create_time) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())"
         try:
-            mysql_cursor.execute(
+            cursor.execute(
                 query,
                 (
                     jobid,
@@ -65,11 +65,11 @@ def process_jobresults(jobid, jobresult_zip, crashdb, cnx):
                     entry["return_code"],
                 ),
             )
-        except mysql.connector.errors.IntegrityError as err:
+        except psycopg2.Error as err:
             print("Integrity: {}".format(err))
 
-        mysql_cnx.commit()
-        mysql_cursor.close()
+        cnx.commit()
+        cursor.close()
 
     def dict_factory(cursor, row):
         """
@@ -92,7 +92,7 @@ def process_jobresults(jobid, jobresult_zip, crashdb, cnx):
 
     result = [dict(row) for row in result.fetchall()]
 
-    # insert into mysql
+    # insert into database
     for analysis in result:
         # pull backtrace, if any, into dictionary
         print("Exporting entry: {}".format(analysis))
@@ -104,7 +104,7 @@ def process_jobresults(jobid, jobresult_zip, crashdb, cnx):
         analysis["should_ignore"] = analysis["should_ignore"]
 
         if cnx:
-            export_to_mysql(analysis, cnx)
+            export_to_db(analysis, cnx)
 
     cdbcon.close()
 
@@ -147,13 +147,13 @@ def scan(directory, cnx):
     """
     Scan jobs directory for newly finished jobs. If a new job is found and its
     jobresults.zip contains a crash database, call process_jobresults to export
-    crashes into MySQL.
+    crashes into the database.
 
     Once a job has been processed, we touch .scanned in the job directory in
     order to skip processing it on subsequent scans.
 
     :param directory: jobs directory to scan
-    :param cnx: connection to MySQL database to export into
+    :param cnx: connection to database to export into
     """
     print("Scanning {}".format(directory))
     dirs = filter(
@@ -170,7 +170,7 @@ def scan(directory, cnx):
 
 def lagopus_connect_db():
     """
-    Connect to MySQL database and return result.
+    Connect to database and return result.
 
     :return: database connection
     """
@@ -179,12 +179,12 @@ def lagopus_connect_db():
     try:
         connection_config = {
             k: DBCONF[k]
-            for k in ["user", "password", "database", "host", "raise_on_warnings"]
+            for k in ["user", "password", "dbname", "host"]
         }
-        cnx = mysql.connector.connect(**connection_config)
+        cnx = psycopg2.connect(**connection_config)
         print("Initialized database.")
-    except mysql.connector.Error as err:
-        print("Couldn't connect to MySQL: {}".format(err))
+    except psycopg2.Error as err:
+        print("Couldn't connect to database: {}".format(err))
 
     return cnx
 
@@ -201,7 +201,7 @@ def lagopus_wait_connect_db(retry, wait):
     while not cnx and retry != 0:
         if retry > 0:
             retry -= 1
-        print("Failed to conenct to MySQL, retrying in {}s...".format(wait))
+        print("Failed to conenct to database, retrying in {}s...".format(wait))
         time.sleep(wait)
         cnx = lagopus_connect_db()
 
@@ -217,7 +217,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--jobsdir", type=str, help="where to look for job directories", default=JOBSDIR
     )
-    parser.add_argument("--noexport", help="don't export to MySQL", action="store_true")
+    parser.add_argument("--noexport", help="don't export to database", action="store_true")
     parser.add_argument("--oneshot", help="do one scan and exit", action="store_true")
 
     args = parser.parse_args()

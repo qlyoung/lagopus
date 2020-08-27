@@ -18,7 +18,8 @@ from flask import jsonify
 from flask_restx import Resource, Api, Model, reqparse, fields, errors
 from werkzeug.utils import secure_filename
 from requests.exceptions import ConnectionError
-import mysql.connector
+import psycopg2
+from psycopg2.extras import DictCursor
 from zipfile import ZipFile
 
 from influxdb import InfluxDBClient
@@ -34,13 +35,10 @@ CONFIG = {
     "dirs": {"base": "/lagopus", "jobs": "/lagopus/jobs",},
     "database": {
         "connection": {
-            "user": "root",
+            "user": "lagopus",
             "password": "lagopus",
             "host": "localhost",
-            "database": "lagopus",
-            "raise_on_warnings": True,
-            "buffered": True,
-            "autocommit": True,
+            "dbname": "lagopus",
         },
         "tables": ["jobs", "crashes"],
     },
@@ -260,10 +258,10 @@ def lagopus_db_connect():
     cnx = None
 
     try:
-        cnx = mysql.connector.connect(**CONFIG["database"]["connection"])
+        cnx = psycopg2.connect(**CONFIG["database"]["connection"], cursor_factory=DictCursor)
         app.logger.info("Initialized database.")
-    except mysql.connector.Error as err:
-        app.logger.error("Couldn't connect to MySQL: {}".format(err))
+    except psycopg2.Error as err:
+        app.logger.error("Couldn't connect to PostgreSQL: {}".format(err))
 
     return cnx
 
@@ -279,9 +277,7 @@ def lagopus_db_cursor(**kwargs):
     if not cnx:
         cnx = lagopus_db_connect()
 
-    try:
-        cnx.ping(reconnect=True, attempts=3, delay=5)
-    except mysql.connector.Error:
+    if cnx.closed != 0:
         cnx = lagopus_db_connect()
 
     return cnx.cursor(**kwargs)
@@ -301,7 +297,7 @@ class LagopusNode(object):
 
 class LagopusCrash(object):
     def get(self, job_id=None):
-        cursor = lagopus_db_cursor(dictionary=True)
+        cursor = lagopus_db_cursor()
         app.logger.error("Querying for crashes with job_id = '{}'".format(job_id))
         query = "SELECT * FROM crashes WHERE job_id LIKE %(job_id)s"
         job_id = job_id if job_id else "%"
@@ -344,7 +340,7 @@ class LagopusJob(object):
         pass
 
     def get(self, job_id=None):
-        cursor = lagopus_db_cursor(dictionary=True)
+        cursor = lagopus_db_cursor()
 
         # update db from k8s
         # ...job status, etc
@@ -363,7 +359,7 @@ class LagopusJob(object):
             )
 
         # fetch from db
-        cursor = lagopus_db_cursor(dictionary=True)
+        cursor = lagopus_db_cursor()
         if job_id:
             cursor.execute(
                 "SELECT * FROM jobs WHERE job_id = %(job_id)s", {"job_id": job_id}
@@ -383,7 +379,7 @@ class LagopusJob(object):
         job_id = lagopus_job_id(job_name, driver, now)
 
         status = "Created"
-        create_timestamp = now.strftime("%Y-%m-%d %H-%M-%S")
+        create_timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
 
         filename = secure_filename(job_id + ".zip")
         savepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
