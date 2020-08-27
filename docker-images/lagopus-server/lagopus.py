@@ -19,7 +19,7 @@ from flask_restx import Resource, Api, Model, reqparse, fields, errors
 from werkzeug.utils import secure_filename
 from requests.exceptions import ConnectionError
 import psycopg2
-from psycopg2.extras import DictCursor
+from psycopg2.extras import DictCursor, RealDictCursor
 from zipfile import ZipFile
 
 from influxdb import InfluxDBClient
@@ -258,7 +258,7 @@ def lagopus_db_connect():
     cnx = None
 
     try:
-        cnx = psycopg2.connect(**CONFIG["database"]["connection"], cursor_factory=DictCursor)
+        cnx = psycopg2.connect(**CONFIG["database"]["connection"], cursor_factory=RealDictCursor)
         app.logger.info("Initialized database.")
     except psycopg2.Error as err:
         app.logger.error("Couldn't connect to PostgreSQL: {}".format(err))
@@ -359,7 +359,7 @@ class LagopusJob(object):
                 {"status": job["status"], "job_id": job["name"]},
             )
 
-        cursor.commit()
+        cnx.commit()
 
         # fetch from db
         cursor = lagopus_db_cursor()
@@ -414,7 +414,7 @@ class LagopusJob(object):
                 create_timestamp,
             )
         )
-        cursor.commit()
+        cnx.commit()
         cursor.close()
 
         return self.get(job_id)
