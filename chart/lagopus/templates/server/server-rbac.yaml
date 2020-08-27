@@ -14,6 +14,9 @@ rules:
 - apiGroups: ["batch"]
   resources: ["jobs"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
 ---
 # Define a RoleBinding that grants the above Role to the 'default'
 # ServiceAccount.
