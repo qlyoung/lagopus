@@ -4,7 +4,7 @@ WORKDIR /build/
 COPY ./templates/package.json ./templates/
 RUN cd templates && npm install
 
-FROM tiangolo/meinheld-gunicorn:python3.7
+FROM qlyoung/meinheld-gunicorn
 
 WORKDIR /app/
 COPY --from=0 /build/ ./
