@@ -462,6 +462,17 @@ class LagopusJob(object):
 
         return results
 
+    def get_result(self, job_id):
+        jobdir = CONFIG["dirs"]["jobs"] + "/" + job_id
+        jobresult_file = jobdir + "/jobresults.zip"
+        if not os.path.exists(jobresult_file):
+            app.logger.warning(
+                "Job '{}': No job results file '{}'".format(job_id, jobresult_file)
+            )
+            return None
+
+        return jobresult_file
+
 
 LagopusJob = LagopusJob()
 LagopusCrash = LagopusCrash()
@@ -714,6 +725,18 @@ class JobStats(Resource):
             errors.abort(code=503, message="Could not connect to InfluxDB")
 
         return results
+
+
+@api.route("/jobs/<string:job_id>/result")
+@api.doc(params={"job_id": "Job to retrieve result for"})
+class JobResults(Resource):
+    @api.doc(response={404: "Result not found"})
+    def get(self, job_id):
+        result = LagopusJob.get_result(job_id)
+        if result:
+            return send_file(result, as_attachment=True)
+        else:
+            errors.abort(code=404, message="Result not found")
 
 
 crash_model = api.model(

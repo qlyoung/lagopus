@@ -85,6 +85,9 @@
                 <div class="col"><strong>Live fuzzers</strong><p id="summary_live_fuzzers">-</p></div>
                 <div class="col"><strong>Total Paths</strong><p id="summary_paths">-</p></div>
                 <div class="col"><strong>Total Execs</strong><p id="summary_execs">-</p></div>
+                {% if job["status"] == "Complete" %}
+                <div class="col"><strong>Results</strong><p><a href="api/jobs/{{ job["job_id"] }}/result">Download</a></p></div>
+                {% endif %}
               </div>
             </div>
             <script>
