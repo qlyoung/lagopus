@@ -46,7 +46,7 @@
                   $("#killButton").click(function() {
                     $.ajax({
                       type: "post",
-                      url: "api/jobs/{{ job["job_id"] }}",
+                      url: "api/jobs/{{ job["job_id"] }}/control",
                       data: JSON.stringify({
                         "action": "kill"
                       }),
